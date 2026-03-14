@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import sqlite3
 import time
@@ -6,9 +7,17 @@ from datetime import datetime
 from vkbottle import Keyboard, KeyboardButtonColor, Text, Callback, GroupEventType, BaseStateGroup
 from vkbottle.bot import Bot, Message, MessageEvent
 
+# --- ВЗЛОМ СИСТЕМЫ: Отключаем проверку SSL для VK API ---
+orig_init = aiohttp.TCPConnector.__init__
+def patched_init(self, *args, **kwargs):
+    kwargs['ssl'] = False
+    orig_init(self, *args, **kwargs)
+aiohttp.TCPConnector.__init__ = patched_init
+# --------------------------------------------------------
+
 # --- НАСТРОЙКИ ---
-TOKEN = "ТВОЙ_ТОКЕН_ГРУППЫ_ВК"
-ADMINS = 764850264  # ВАЖНО! Замени на ваши цифровые ID ВКонтакте!
+TOKEN = "vk1.a.Pfmp1-LMA0YPPFfdXrrwe2E-Jngb9559p3GTqCzkl9rN-1IYOFE9UsfcreJrRWAqaa8lrIzAe2I36Hru6nXdhzuDLjXLGAVriYdNJQnyDLAmnUdgjWq0KiZagCdyUoL9WcM6WiZ5Cq3T5ZmimUXOBKFwt8QewOxbGgqR_G6JlxtnTfV09J-9k1ZqzOCTERrZbcDjKjdCWiuXYa8YlFOZgQ"
+ADMINS = [510619275, 764850264]
 
 bot = Bot(token=TOKEN)
 
@@ -23,7 +32,7 @@ def init_db():
     cursor.execute('''CREATE TABLE IF NOT EXISTS marriages (id INTEGER PRIMARY KEY AUTOINCREMENT, user1_id INTEGER, user2_id INTEGER)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS wanted (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, reason TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS mutes (user_id INTEGER PRIMARY KEY, until INTEGER)''') # Таблица мутов для ВК
+    cursor.execute('''CREATE TABLE IF NOT EXISTS mutes (user_id INTEGER PRIMARY KEY, until INTEGER)''')
     conn.commit()
     conn.close()
 
@@ -39,7 +48,6 @@ def get_or_create_user(user_id, name):
     conn.close()
 
 def resolve_user_vk(text):
-    """Ищет пользователя по ID или [id123|Упоминанию] ВК"""
     match = re.search(r"\[id(\d+)\|", text)
     if match: return int(match.group(1))
     if text.isdigit(): return int(text)
@@ -96,7 +104,6 @@ def main_menu_kb():
 def get_reply_kb(user_id, peer_id):
     kb = Keyboard(one_time=False, inline=False)
     kb.add(Text("🏛 Меню Свахуильска"), color=KeyboardButtonColor.PRIMARY)
-    # Кнопка админки только в ЛС бота (peer_id < 2000000000)
     if user_id in ADMINS and peer_id < 2000000000:
         kb.row().add(Text("⚙️ Панель Властей"), color=KeyboardButtonColor.NEGATIVE)
     return kb.get_json()
@@ -110,41 +117,6 @@ def admin_panel_kb():
     kb.add(Callback("⚖️ Модерация", {"cmd": "admin_mod"}), color=KeyboardButtonColor.NEGATIVE)
     return kb.get_json()
 
-# --- СИСТЕМНОЕ И МУТЫ (ВК) ---
-@bot.on.message()
-async def catch_all_and_mutes(message: Message):
-    user_id = message.from_id
-    peer_id = message.peer_id
-
-    # Регистрация и захват ID беседы
-    if user_id > 0:
-        # Для ВК берем Имя Фамилия из API, если это новый юзер
-        user_info = await bot.api.users.get(user_ids=[user_id])
-        name = f"{user_info[0].first_name} {user_info[0].last_name}" if user_info else "Житель"
-        get_or_create_user(user_id, name)
-        
-    if peer_id > 2000000000:
-        conn = sqlite3.connect("svahuilsk_vk.db")
-        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('group_id', ?)", (str(peer_id),))
-        
-        # Проверка мута
-        mute_data = conn.execute("SELECT until FROM mutes WHERE user_id = ?", (user_id,)).fetchone()
-        conn.commit()
-        conn.close()
-
-        if mute_data:
-            if time.time() < mute_data[0]:
-                # Человек в муте - удаляем сообщение!
-                try: await bot.api.messages.delete(peer_id=peer_id, message_ids=[message.conversation_message_id], delete_for_all=True)
-                except: pass
-                return # Останавливаем обработку
-            else:
-                # Мут истек
-                conn = sqlite3.connect("svahuilsk_vk.db")
-                conn.execute("DELETE FROM mutes WHERE user_id = ?", (user_id,))
-                conn.commit()
-                conn.close()
-
 # --- ОБРАБОТЧИК ИНЛАЙН КНОПОК ВК ---
 @bot.on.raw_event(GroupEventType.MESSAGE_EVENT, dataclass=MessageEvent)
 async def handle_message_event(event: MessageEvent):
@@ -153,14 +125,12 @@ async def handle_message_event(event: MessageEvent):
     user_id = event.user_id
     peer_id = event.peer_id
 
-    # Отмена (Выход из состояний)
     if cmd == "cancel":
         await bot.state_dispenser.delete(peer_id)
         await bot.api.messages.send_message_event_answer(event_id=event.event_id, user_id=user_id, peer_id=peer_id, event_data={"type": "show_snackbar", "text": "Отменено!"})
         await bot.api.messages.send(peer_id=peer_id, message="Действие отменено 🔙", random_id=0)
         return
 
-    # Паспорт
     if cmd == "passport":
         fields = sqlite3.connect("svahuilsk_vk.db").execute("SELECT field_name, field_value FROM passport_fields WHERE user_id = ?", (user_id,)).fetchall()
         text = f"🪪 ПАСПОРТ СВАХУИЛЬЦА\n\n👤 ФИО: {get_mention(user_id)}\n"
@@ -173,7 +143,6 @@ async def handle_message_event(event: MessageEvent):
         if not added: text += "Остальные данные не заполнены."
         await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
 
-    # Новости и Законы
     elif cmd == "news":
         news = sqlite3.connect("svahuilsk_vk.db").execute("SELECT author, text, date FROM news WHERE id = 1").fetchone()
         text = f"📰 ГЛАВНАЯ НОВОСТЬ\n\n{news[1]}\n\nАвтор: {news[0]} | {news[2]}" if news else "Новостей нет."
@@ -193,7 +162,6 @@ async def handle_message_event(event: MessageEvent):
         if not cr: text += "Преступников нет."
         await bot.api.messages.send(peer_id=peer_id, message=text, random_id=0)
 
-    # Работа
     elif cmd == "jobs":
         kb = Keyboard(inline=True)
         kb.add(Callback("⛏ Шахтёр", {"cmd": "applyjob", "job": "Шахтёр"}))
@@ -229,7 +197,6 @@ async def handle_message_event(event: MessageEvent):
             try: await bot.api.messages.send(peer_id=grp, message=f"😔 Власти отклонили заявку {get_mention(payload.get('u'))} на {payload.get('j')}.", random_id=0)
             except: pass
 
-    # Меню Админа
     elif cmd == "admin_edit_pass":
         await bot.api.messages.send(peer_id=peer_id, message="Введите [id|упоминание] или ID жителя:", keyboard=get_cancel_kb(), random_id=0)
         await bot.state_dispenser.set(peer_id, AppFSM.pass_target)
@@ -248,7 +215,6 @@ async def handle_message_event(event: MessageEvent):
         await bot.api.messages.send(peer_id=peer_id, message="Введите [id|упоминание] или ID нарушителя:", keyboard=get_cancel_kb(), random_id=0)
         await bot.state_dispenser.set(peer_id, AppFSM.mod_target)
 
-    # Розыск Админ
     elif cmd == "wanted_clear":
         conn = sqlite3.connect("svahuilsk_vk.db")
         conn.execute("DELETE FROM wanted")
@@ -258,7 +224,6 @@ async def handle_message_event(event: MessageEvent):
         await bot.api.messages.send(peer_id=peer_id, message="Имя или ID преступника:", keyboard=get_cancel_kb(), random_id=0)
         await bot.state_dispenser.set(peer_id, AppFSM.wanted_target)
 
-    # Репорты (Модерация из жалобы)
     elif cmd == "report_user":
         await bot.api.messages.send(peer_id=peer_id, message="🚨 Введите [id|упоминание] или ID нарушителя:", keyboard=get_cancel_kb(), random_id=0)
         await bot.state_dispenser.set(peer_id, AppFSM.report_target)
@@ -280,7 +245,6 @@ async def handle_message_event(event: MessageEvent):
                 await bot.api.messages.send(peer_id=peer_id, message="✅ Исключен из беседы.", random_id=0)
             except: pass
 
-    # Модерация Панель
     elif cmd == "execmod":
         act, tid, dur = payload.get("a"), payload.get("t"), payload.get("d", 0)
         grp = get_group_id()
@@ -300,7 +264,6 @@ async def handle_message_event(event: MessageEvent):
             await bot.api.messages.send(peer_id=peer_id, message="✅ Мут/Бан снят.", random_id=0)
         await bot.state_dispenser.delete(peer_id)
 
-    # Свадьбы Подтверждения
     elif cmd == "marry_ans":
         act, u1, u2 = payload.get("a"), payload.get("u1"), payload.get("u2")
         if act == "no":
@@ -337,7 +300,6 @@ async def handle_message_event(event: MessageEvent):
                 except: pass
         conn.close()
 
-    # Закрываем событие ВК, чтобы не висели часики на кнопках
     try: await bot.api.messages.send_message_event_answer(event_id=event.event_id, user_id=user_id, peer_id=peer_id)
     except: pass
 
@@ -347,7 +309,6 @@ async def show_menu(message: Message):
     get_or_create_user(message.from_id, "Житель")
     mention = get_mention(message.from_id)
     await message.answer(f"🏛 Главное меню {mention}:", keyboard=main_menu_kb())
-    # Отправляем обычную клавиатуру, чтобы она закрепилась внизу
     await message.answer("Используй кнопки:", keyboard=get_reply_kb(message.from_id, message.peer_id))
 
 @bot.on.message(text="⚙️ Панель Властей")
@@ -355,10 +316,8 @@ async def admin_panel_cmd(message: Message):
     if message.from_id in ADMINS and message.peer_id < 2000000000:
         await message.answer("⚙️ Система управления:", keyboard=admin_panel_kb())
 
-@bot.on.message(text="брак <text>")
-@bot.on.message(text="Брак <text>")
+@bot.on.message(text=["брак <text>", "Брак <text>"])
 async def propose_m(message: Message):
-    # В ВК нет "ответов" так же просто, поэтому команда: "брак [упоминание]"
     u1_id = message.from_id
     u2_id = resolve_user_vk(message.text)
     if not u2_id: return await message.answer("Укажи кого-то: брак [упоминание]")
@@ -370,8 +329,6 @@ async def propose_m(message: Message):
     await message.answer(f"💍 {get_mention(u2_id)}, {get_mention(u1_id)} предлагает брак! Согласны?", keyboard=kb.get_json())
 
 # --- FSM ОБРАБОТЧИКИ СОСТОЯНИЙ ---
-
-# 1. ПАСПОРТ
 @bot.on.message(state=AppFSM.pass_target)
 async def pass_t_handler(message: Message):
     tid = resolve_user_vk(message.text)
@@ -391,7 +348,6 @@ async def pass_v_handler(message: Message):
     
     conn = sqlite3.connect("svahuilsk_vk.db")
     if field.lower() in ["имя", "фамилия", "отчество"]:
-        # Для ВК просто сохраним ФИО как поля
         conn.execute("DELETE FROM passport_fields WHERE user_id = ? AND field_name = ?", (tid, field))
         if val != "-": conn.execute("INSERT INTO passport_fields (user_id, field_name, field_value) VALUES (?, ?, ?)", (tid, field, val))
     else:
@@ -403,7 +359,6 @@ async def pass_v_handler(message: Message):
     await bot.state_dispenser.delete(message.peer_id)
     await message.answer(f"✅ Сохранено: {field} = {val}")
 
-# 2. РЕПОРТЫ
 @bot.on.message(state=AppFSM.report_target)
 async def rep_t_handler(message: Message):
     tid = resolve_user_vk(message.text)
@@ -423,7 +378,6 @@ async def rep_r_handler(message: Message):
     await bot.state_dispenser.delete(message.peer_id)
     await message.answer("✅ Жалоба отправлена.")
 
-# 3. МОДЕРАЦИЯ
 @bot.on.message(state=AppFSM.mod_target)
 async def mod_t_handler(message: Message):
     tid = resolve_user_vk(message.text)
@@ -433,10 +387,9 @@ async def mod_t_handler(message: Message):
     kb.add(Callback("🔇 Мут 1ч", {"cmd": "execmod", "a": "mute", "t": tid, "d": 3600})).row()
     kb.add(Callback("⛔️ Бан", {"cmd": "execmod", "a": "ban", "t": tid}))
     kb.add(Callback("🕊 Разбан", {"cmd": "execmod", "a": "unban", "t": tid}))
-    await bot.state_dispenser.delete(message.peer_id) # Модерация через инлайн
+    await bot.state_dispenser.delete(message.peer_id)
     await message.answer(f"Что делаем с {get_mention(tid)}?", keyboard=kb.get_json())
 
-# 4. УВОЛЬНЕНИЕ
 @bot.on.message(state=AppFSM.fire_target)
 async def fire_t_handler(message: Message):
     tid = resolve_user_vk(message.text)
@@ -457,7 +410,6 @@ async def fire_t_handler(message: Message):
         try: await bot.api.messages.send(peer_id=grp, message=f"📢 УВОЛЬНЕНИЕ\nГражданин {get_mention(tid)} освобожден от: {job[0]}.", random_id=0)
         except: pass
 
-# 5. ПРИЗНАНИЕ
 @bot.on.message(state=AppFSM.recog_target)
 async def rec_t_handler(message: Message):
     tid = resolve_user_vk(message.text)
@@ -476,7 +428,6 @@ async def rec_s_handler(message: Message):
             await message.answer("✅ Объявлено в беседе!")
         except: await message.answer("❌ Ошибка отправки в беседу.")
 
-# 6. РОЗЫСК
 @bot.on.message(state=AppFSM.wanted_target)
 async def wan_t_handler(message: Message):
     await bot.state_dispenser.set(message.peer_id, AppFSM.wanted_reason, target_name=message.text)
@@ -491,8 +442,39 @@ async def wan_r_handler(message: Message):
     await bot.state_dispenser.delete(message.peer_id)
     await message.answer("✅ Добавлен в розыск!")
 
+# --- СИСТЕМНОЕ И МУТЫ (ВК) --- ПЕРЕМЕЩЕНО В САМЫЙ НИЗ!
+@bot.on.message()
+async def catch_all_and_mutes(message: Message):
+    user_id = message.from_id
+    peer_id = message.peer_id
+
+    if user_id > 0:
+        try:
+            user_info = await bot.api.users.get(user_ids=[user_id])
+            name = f"{user_info[0].first_name} {user_info[0].last_name}" if user_info else "Житель"
+            get_or_create_user(user_id, name)
+        except: pass
+        
+    if peer_id > 2000000000:
+        conn = sqlite3.connect("svahuilsk_vk.db")
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('group_id', ?)", (str(peer_id),))
+        
+        mute_data = conn.execute("SELECT until FROM mutes WHERE user_id = ?", (user_id,)).fetchone()
+        conn.commit()
+        conn.close()
+
+        if mute_data:
+            if time.time() < mute_data[0]:
+                try: await bot.api.messages.delete(peer_id=peer_id, message_ids=[message.conversation_message_id], delete_for_all=True)
+                except: pass
+            else:
+                conn = sqlite3.connect("svahuilsk_vk.db")
+                conn.execute("DELETE FROM mutes WHERE user_id = ?", (user_id,))
+                conn.commit()
+                conn.close()
+
 # Запуск
 if __name__ == "__main__":
     init_db()
-    print("Свахуильск ВКонтакте V1.0 Запущен!")
+    print("Свахуильск ВКонтакте V1.2 Запущен!")
     bot.run_forever()
