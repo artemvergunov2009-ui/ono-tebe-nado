@@ -16,7 +16,7 @@ aiohttp.TCPConnector.__init__ = patched_init
 # --------------------------------------------------------
 
 # --- НАСТРОЙКИ ---
-TOKEN = "vk1.a.7a7xgL0pVgzKS1jx179sJRmuO6HrbUxNYEcKrHMjUNlpfX63kzPULki1GCFf9a8yLdozvL1pWygBDLAAWu_otWLIEBSmXqQHAIhDvfb3i1cWir4j2SNH8fkHIlZe1lBp4N9CCaS6RU0VK7I4VyRCfPb9BzY7GSWVhjz9zazpnulzUbbOcqO4Y7SfPVJTrJTmn-Vj3L6nIMNWmjEUKoymmw"
+TOKEN = "vk1.a.Pfmp1-LMA0YPPFfdXrrwe2E-Jngb9559p3GTqCzkl9rN-1IYOFE9UsfcreJrRWAqaa8lrIzAe2I36Hru6nXdhzuDLjXLGAVriYdNJQnyDLAmnUdgjWq0KiZagCdyUoL9WcM6WiZ5Cq3T5ZmimUXOBKFwt8QewOxbGgqR_G6JlxtnTfV09J-9k1ZqzOCTERrZbcDjKjdCWiuXYa8YlFOZgQ"
 ADMINS = [510619275, 764850264]
 
 bot = Bot(token=TOKEN)
@@ -364,7 +364,6 @@ async def pass_v_handler(message: Message):
     await bot.state_dispenser.delete(message.peer_id)
     await message.answer(f"✅ Сохранено: {field} = {val}")
 
-# >>> ТОТ САМЫЙ БЛОК ДЛЯ НОВОСТЕЙ, КОТОРЫЙ Я ЗАБЫЛ <<<
 @bot.on.message(state=AppFSM.news_text)
 async def news_t_handler(message: Message):
     author = get_user_name(message.from_id)
@@ -466,7 +465,7 @@ async def wan_r_handler(message: Message):
     await bot.state_dispenser.delete(message.peer_id)
     await message.answer("✅ Добавлен в розыск!")
 
-# --- СИСТЕМНОЕ И МУТЫ (ВК) --- ПЕРЕМЕЩЕНО В САМЫЙ НИЗ!
+# --- СИСТЕМНОЕ И МУТЫ (ВК) ---
 @bot.on.message()
 async def catch_all_and_mutes(message: Message):
     user_id = message.from_id
