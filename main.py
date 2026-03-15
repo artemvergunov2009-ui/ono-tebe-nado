@@ -16,7 +16,7 @@ aiohttp.TCPConnector.__init__ = patched_init
 # --------------------------------------------------------
 
 # --- НАСТРОЙКИ ---
-TOKEN = "ТВОЙ_НОВЫЙ_ТОКЕН_СЮДА"
+TOKEN = "vk1.a.7a7xgL0pVgzKS1jx179sJRmuO6HrbUxNYEcKrHMjUNlpfX63kzPULki1GCFf9a8yLdozvL1pWygBDLAAWu_otWLIEBSmXqQHAIhDvfb3i1cWir4j2SNH8fkHIlZe1lBp4N9CCaS6RU0VK7I4VyRCfPb9BzY7GSWVhjz9zazpnulzUbbOcqO4Y7SfPVJTrJTmn-Vj3L6nIMNWmjEUKoymmw"
 ADMINS = [510619275, 764850264]
 
 bot = Bot(token=TOKEN)
@@ -86,7 +86,7 @@ class AppFSM(BaseStateGroup):
     report_target = 8
     report_reason = 9
     fire_target = 10
-    news_text = 11
+    news_text = 11 # Новое состояние для новостей
 
 # --- КЛАВИАТУРЫ ---
 def get_cancel_kb():
@@ -199,6 +199,7 @@ async def handle_message_event(event: MessageEvent):
             try: await bot.api.messages.send(peer_id=grp, message=f"😔 Власти отклонили заявку {get_mention(payload.get('u'))} на {payload.get('j')}.", random_id=0)
             except: pass
 
+    # Меню Админа
     elif cmd == "admin_edit_pass":
         await bot.api.messages.send(peer_id=peer_id, message="Введите [id|упоминание] или ID жителя:", keyboard=get_cancel_kb(), random_id=0)
         await bot.state_dispenser.set(peer_id, AppFSM.pass_target)
@@ -364,12 +365,12 @@ async def pass_v_handler(message: Message):
     await bot.state_dispenser.delete(message.peer_id)
     await message.answer(f"✅ Сохранено: {field} = {val}")
 
-# >>> ТОТ САМЫЙ БЛОК ДЛЯ НОВОСТЕЙ, КОТОРЫЙ Я ЗАБЫЛ <<<
 @bot.on.message(state=AppFSM.news_text)
 async def news_t_handler(message: Message):
     author = get_user_name(message.from_id)
     date = datetime.now().strftime("%d.%m.%Y")
     
+    # Сохраняем в базу (id=1, так как главная новость у нас одна)
     conn = sqlite3.connect("svahuilsk_vk.db")
     conn.execute("INSERT OR REPLACE INTO news (id, author, text, date) VALUES (1, ?, ?, ?)", (author, message.text, date))
     conn.commit()
@@ -378,6 +379,7 @@ async def news_t_handler(message: Message):
     await bot.state_dispenser.delete(message.peer_id)
     await message.answer("✅ Главная новость успешно опубликована!")
     
+    # Отправляем уведомление в беседу
     grp = get_group_id()
     if grp:
         try: await bot.api.messages.send(peer_id=grp, message=f"📰 ВНИМАНИЕ, НОВОСТЬ!\n\n{message.text}\n\nАвтор: {author}", random_id=0)
@@ -500,5 +502,5 @@ async def catch_all_and_mutes(message: Message):
 # Запуск
 if __name__ == "__main__":
     init_db()
-    print("Свахуильск ВКонтакте V1.4 Запущен!")
+    print("Свахуильск ВКонтакте V1.3 Запущен!")
     bot.run_forever()
