@@ -16,7 +16,7 @@ aiohttp.TCPConnector.__init__ = patched_init
 # --------------------------------------------------------
 
 # --- НАСТРОЙКИ ---
-TOKEN = "vk1.a.Pfmp1-LMA0YPPFfdXrrwe2E-Jngb9559p3GTqCzkl9rN-1IYOFE9UsfcreJrRWAqaa8lrIzAe2I36Hru6nXdhzuDLjXLGAVriYdNJQnyDLAmnUdgjWq0KiZagCdyUoL9WcM6WiZ5Cq3T5ZmimUXOBKFwt8QewOxbGgqR_G6JlxtnTfV09J-9k1ZqzOCTERrZbcDjKjdCWiuXYa8YlFOZgQ"
+TOKEN = "ТВОЙ_НОВЫЙ_ТОКЕН_СЮДА"
 ADMINS = [510619275, 764850264]
 
 bot = Bot(token=TOKEN)
@@ -86,6 +86,7 @@ class AppFSM(BaseStateGroup):
     report_target = 8
     report_reason = 9
     fire_target = 10
+    news_text = 11 # Новое состояние для новостей
 
 # --- КЛАВИАТУРЫ ---
 def get_cancel_kb():
@@ -112,8 +113,9 @@ def admin_panel_kb():
     kb = Keyboard(inline=True)
     kb.add(Callback("🪪 Изменить паспорт", {"cmd": "admin_edit_pass"})).row()
     kb.add(Callback("💼 Уволить с работы", {"cmd": "admin_fire"})).row()
-    kb.add(Callback("📢 Признание", {"cmd": "admin_recognize"}), color=KeyboardButtonColor.PRIMARY).row()
-    kb.add(Callback("🚓 Розыск", {"cmd": "admin_wanted"}), color=KeyboardButtonColor.NEGATIVE).row()
+    kb.add(Callback("📢 Признание", {"cmd": "admin_recognize"}), color=KeyboardButtonColor.PRIMARY)
+    kb.add(Callback("📝 Написать новость", {"cmd": "admin_news"}), color=KeyboardButtonColor.POSITIVE).row()
+    kb.add(Callback("🚓 Розыск", {"cmd": "admin_wanted"}), color=KeyboardButtonColor.NEGATIVE)
     kb.add(Callback("⚖️ Модерация", {"cmd": "admin_mod"}), color=KeyboardButtonColor.NEGATIVE)
     return kb.get_json()
 
@@ -197,6 +199,7 @@ async def handle_message_event(event: MessageEvent):
             try: await bot.api.messages.send(peer_id=grp, message=f"😔 Власти отклонили заявку {get_mention(payload.get('u'))} на {payload.get('j')}.", random_id=0)
             except: pass
 
+    # Меню Админа
     elif cmd == "admin_edit_pass":
         await bot.api.messages.send(peer_id=peer_id, message="Введите [id|упоминание] или ID жителя:", keyboard=get_cancel_kb(), random_id=0)
         await bot.state_dispenser.set(peer_id, AppFSM.pass_target)
@@ -206,6 +209,9 @@ async def handle_message_event(event: MessageEvent):
     elif cmd == "admin_recognize":
         await bot.api.messages.send(peer_id=peer_id, message="Введите [id|упоминание] или ID жителя:", keyboard=get_cancel_kb(), random_id=0)
         await bot.state_dispenser.set(peer_id, AppFSM.recog_target)
+    elif cmd == "admin_news":
+        await bot.api.messages.send(peer_id=peer_id, message="Введите текст главной новости (он заменит текущую):", keyboard=get_cancel_kb(), random_id=0)
+        await bot.state_dispenser.set(peer_id, AppFSM.news_text)
     elif cmd == "admin_wanted":
         kb = Keyboard(inline=True)
         kb.add(Callback("🔴 Добавить", {"cmd": "wanted_add"}), color=KeyboardButtonColor.NEGATIVE)
@@ -359,6 +365,26 @@ async def pass_v_handler(message: Message):
     await bot.state_dispenser.delete(message.peer_id)
     await message.answer(f"✅ Сохранено: {field} = {val}")
 
+@bot.on.message(state=AppFSM.news_text)
+async def news_t_handler(message: Message):
+    author = get_user_name(message.from_id)
+    date = datetime.now().strftime("%d.%m.%Y")
+    
+    # Сохраняем в базу (id=1, так как главная новость у нас одна)
+    conn = sqlite3.connect("svahuilsk_vk.db")
+    conn.execute("INSERT OR REPLACE INTO news (id, author, text, date) VALUES (1, ?, ?, ?)", (author, message.text, date))
+    conn.commit()
+    conn.close()
+    
+    await bot.state_dispenser.delete(message.peer_id)
+    await message.answer("✅ Главная новость успешно опубликована!")
+    
+    # Отправляем уведомление в беседу
+    grp = get_group_id()
+    if grp:
+        try: await bot.api.messages.send(peer_id=grp, message=f"📰 ВНИМАНИЕ, НОВОСТЬ!\n\n{message.text}\n\nАвтор: {author}", random_id=0)
+        except: pass
+
 @bot.on.message(state=AppFSM.report_target)
 async def rep_t_handler(message: Message):
     tid = resolve_user_vk(message.text)
@@ -476,5 +502,5 @@ async def catch_all_and_mutes(message: Message):
 # Запуск
 if __name__ == "__main__":
     init_db()
-    print("Свахуильск ВКонтакте V1.2 Запущен!")
+    print("Свахуильск ВКонтакте V1.3 Запущен!")
     bot.run_forever()
