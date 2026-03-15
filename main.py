@@ -17,7 +17,7 @@ aiohttp.TCPConnector.__init__ = patched_init
 
 # --- НАСТРОЙКИ ---
 TOKEN = "ТВОЙ_НОВЫЙ_ТОКЕН_СЮДА"
-ADMINS = [510619275, 764850264, 1038148226]
+ADMINS = [510619275, 764850264]
 
 bot = Bot(token=TOKEN)
 
