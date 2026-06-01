@@ -85,7 +85,6 @@ export function renderChat(container: HTMLDivElement) {
               </div>
             </div>
             
-            <!-- Pinned Message Banner -->
             <div id="pinned-message-banner" class="chat-banner" style="display: none;"></div>
 
             <div id="messages-list" class="messages-list"></div>
@@ -98,7 +97,6 @@ export function renderChat(container: HTMLDivElement) {
               <button id="send-message-btn" class="send-btn"><i class="fas fa-paper-plane"></i></button>
             </div>
             
-            <!-- Multi-select Bar -->
             <div class="multi-select-bar" id="multi-select-bar">
               <button id="multi-delete-btn" class="btn-cancel" style="color: #ef4444; width: auto; flex: 0.4;">Удалить</button>
               <button id="multi-forward-btn" class="btn-confirm" style="width: auto; flex: 0.4;">Переслать</button>
@@ -178,7 +176,6 @@ export function renderChat(container: HTMLDivElement) {
         </div>
       </main>
 
-    <!-- Subviews -->
     <div id="subview-profile" class="subview glass-panel">
       <div class="chat-header">
         <button class="back-btn" id="back-from-profile" style="background:none;border:none;display:flex;align-items:center;color:var(--primary);cursor:pointer;font-size:16px;font-weight:500;">
@@ -211,7 +208,6 @@ export function renderChat(container: HTMLDivElement) {
       </div>
     </div>
 
-    <!-- Профиль другого пользователя -->
     <div id="subview-other-profile" class="subview glass-panel">
       <div class="chat-header">
         <button class="back-btn" id="back-from-other-profile" style="background:none;border:none;display:flex;align-items:center;color:var(--primary);cursor:pointer;font-size:16px;font-weight:500;">
@@ -275,7 +271,6 @@ export function renderChat(container: HTMLDivElement) {
       </div>
     </div>
 
-    <!-- Modals -->
     <div id="edit-profile-modal" class="modal-overlay">
       <div class="modal-content glass-panel">
         <h3>Редактировать профиль</h3>
@@ -320,7 +315,6 @@ export function renderChat(container: HTMLDivElement) {
       </div>
     </div>
 
-    <!-- Модальное окно звонка -->
     <div id="call-modal" class="modal-overlay" style="background: rgba(15, 12, 41, 0.95); z-index: 10000; backdrop-filter: blur(20px);">
       <div class="call-screen-content" style="position:relative; width:100%; height:100%;">
         <video id="remote-video" autoplay playsinline style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:1; display:none;"></video>
@@ -443,10 +437,10 @@ export function handleIncomingMessage(newMsg: any) {
 
   if (newMsg.chat_id !== currentChatId && newMsg.sender_id !== myUserId) {
       // Увеличиваем счетчик непрочитанных, если мы не в этом чате
-      const states = getLocalObj(`chatStates_${myUserId}`);
+      const states = getLocalObj(`chatStates_${myUserId!}`);
       if (!states[newMsg.chat_id]) states[newMsg.chat_id] = { unread: 0 };
       states[newMsg.chat_id].unread += 1;
-      setLocalObj(`chatStates_${myUserId}`, states);
+      setLocalObj(`chatStates_${myUserId!}`, states);
       
       // Воспроизводим звук
       if (localStorage.getItem('notifications_enabled') === 'true') {
@@ -469,8 +463,8 @@ export function cleanupCall() {
   if (isCallInitiator && currentOtherUserId) {
     const duration = currentCallStartTime ? Math.round((Date.now() - currentCallStartTime) / 1000) : 0;
     supabase.from('calls').insert({
-      caller_id: myUserId,
-      receiver_id: currentOtherUserId,
+      caller_id: myUserId!,
+      receiver_id: currentOtherUserId!,
       duration: duration,
       call_type: callType
     }).then(({error}) => {
@@ -565,7 +559,7 @@ export function bindContextMenu(el: HTMLElement, data: any, type: 'chat' | 'mess
       ctxMenu.innerHTML += `<div class="context-menu-item danger" id="ctx-chat-delall">Удалить у всех</div>`;
     } else {
       const isMine = data.sender_id === myUserId;
-      const isPinned = pinnedMessages[currentChatId!]?.id === data.id;
+      const isPinned = currentChatId ? (pinnedMessages[currentChatId]?.id === data.id) : false;
 
       if (isMine && !data.text.startsWith('{')) {
         ctxMenu.innerHTML += `<div class="context-menu-item" id="ctx-msg-edit">Редактировать</div>`;
@@ -586,15 +580,15 @@ export function bindContextMenu(el: HTMLElement, data: any, type: 'chat' | 'mess
       if (pinnedChats.includes(data.id)) pinnedChats = pinnedChats.filter(id => id !== data.id);
       else if (pinnedChats.length < 3) pinnedChats.push(data.id);
       else alert('Можно закрепить не более 3 чатов');
-      setLocalList(`pinnedChats_${myUserId}`, pinnedChats); loadChats(); ctxMenu.classList.remove('active');
+      setLocalList(`pinnedChats_${myUserId!}`, pinnedChats); loadChats(); ctxMenu.classList.remove('active');
     });
     document.getElementById('ctx-chat-archive')?.addEventListener('click', () => {
       if (archivedChats.includes(data.id)) archivedChats = archivedChats.filter(id => id !== data.id);
       else archivedChats.push(data.id);
-      setLocalList(`archivedChats_${myUserId}`, archivedChats); loadChats(); ctxMenu.classList.remove('active');
+      setLocalList(`archivedChats_${myUserId!}`, archivedChats); loadChats(); ctxMenu.classList.remove('active');
     });
     document.getElementById('ctx-chat-delme')?.addEventListener('click', () => {
-      deletedChats.push(data.id); setLocalList(`deletedChats_${myUserId}`, deletedChats); loadChats();
+      deletedChats.push(data.id); setLocalList(`deletedChats_${myUserId!}`, deletedChats); loadChats();
       if (currentChatId === data.id) { currentChatId = null; document.getElementById('chat-header-container')!.style.display = 'none'; document.getElementById('no-chat-selected')!.style.display = 'flex'; }
       ctxMenu.classList.remove('active');
     });
@@ -623,16 +617,16 @@ export function bindContextMenu(el: HTMLElement, data: any, type: 'chat' | 'mess
       forwardingMessages = [data]; openForwardModal(); ctxMenu.classList.remove('active');
     });
     document.getElementById('ctx-msg-pin')?.addEventListener('click', () => {
-      if (pinnedMessages[currentChatId!]?.id === data.id) delete pinnedMessages[currentChatId!];
-      else pinnedMessages[currentChatId!] = data;
-      setLocalObj(`pinnedMessages_${myUserId}`, pinnedMessages);
+      const chatId = currentChatId!;
+      if (pinnedMessages[chatId]?.id === data.id) delete pinnedMessages[chatId];
+      else pinnedMessages[chatId] = data;
+      setLocalObj(`pinnedMessages_${myUserId!}`, pinnedMessages);
       renderPinnedBanner(); ctxMenu.classList.remove('active');
     });
     document.getElementById('ctx-msg-select')?.addEventListener('click', () => {
       multiSelectMode = true; selectedMessages.clear(); selectedMessages.add(data.id);
       document.getElementById('chat-header-container')?.classList.add('multi-select-mode');
-      const chatId = currentChatId;
-      if (chatId) loadMessages(chatId); ctxMenu.classList.remove('active');
+      if (currentChatId) loadMessages(currentChatId!); ctxMenu.classList.remove('active');
     });
   };
 
@@ -655,24 +649,24 @@ export async function setupChat(session: any) {
     myUsername = session.user.user_metadata.username;
   }
 
-  const { data: profile } = await supabase.from('profiles').select('username').eq('id', myUserId).single();
+  const { data: profile } = await supabase.from('profiles').select('username').eq('id', myUserId!).single();
   if (profile && profile.username) {
     myUsername = profile.username;
   } else {
     // Если профиля в базе еще нет, создаем его принудительно, чтобы другие пользователи нас находили
-    await supabase.from('profiles').upsert([{ id: myUserId, username: myUsername }]);
+    await supabase.from('profiles').upsert([{ id: myUserId!, username: myUsername }]);
   }
   
   document.getElementById('profile-username')!.innerText = myUsername;
   document.getElementById('profile-username-handle')!.innerText = '@' + myUsername;
 
-  pinnedChats = getLocalList(`pinnedChats_${myUserId}`);
-  archivedChats = getLocalList(`archivedChats_${myUserId}`);
-  deletedChats = getLocalList(`deletedChats_${myUserId}`);
-  pinnedMessages = getLocalObj(`pinnedMessages_${myUserId}`);
+  pinnedChats = getLocalList(`pinnedChats_${myUserId!}`);
+  archivedChats = getLocalList(`archivedChats_${myUserId!}`);
+  deletedChats = getLocalList(`deletedChats_${myUserId!}`);
+  pinnedMessages = getLocalObj(`pinnedMessages_${myUserId!}`);
 
   // Логика профиля
-  const profileData = JSON.parse(localStorage.getItem(`profile_${myUserId}`) || '{}');
+  const profileData = JSON.parse(localStorage.getItem(`profile_${myUserId!}`) || '{}');
   const avatarUrl = profileData.avatarUrl || '';
   const avatarBg = profileData.avatarBg || '#8a2be2';
 
@@ -714,7 +708,7 @@ export async function setupChat(session: any) {
     const newBirth = (document.getElementById('edit-birthdate') as HTMLInputElement).value;
     profileData.birthdate = newBirth || 'Не указана';
 
-    localStorage.setItem(`profile_${myUserId}`, JSON.stringify(profileData));
+    localStorage.setItem(`profile_${myUserId!}`, JSON.stringify(profileData));
     updateAvatarUI(profileData.avatarUrl, profileData.avatarBg, myUsername.charAt(0));
     
     // Сохраняем в Supabase, чтобы видели другие
@@ -723,13 +717,13 @@ export async function setupChat(session: any) {
       avatar_bg: profileData.avatarBg,
       description: profileData.description,
       birthdate: profileData.birthdate
-    }).eq('id', myUserId).then();
+    }).eq('id', myUserId!).then();
 
     editModal?.classList.remove('active');
   });
 
   // Подписка на глобальный канал пользователя для мгновенных уведомлений
-  const userTopic = `user_${myUserId}`;
+  const userTopic = `user_${myUserId!}`;
   const existingUserChannel = supabase.getChannels().find(c => c.topic === userTopic || c.topic === `realtime:${userTopic}`);
   if (existingUserChannel) await supabase.removeChannel(existingUserChannel);
 
@@ -740,7 +734,7 @@ export async function setupChat(session: any) {
 
   // Обновляем last_seen при старте и периодически
   const updateLastSeen = async () => {
-    await supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', myUserId);
+    await supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', myUserId!);
   };
   updateLastSeen();
   setInterval(updateLastSeen, 60000); // Раз в минуту
@@ -896,7 +890,7 @@ export async function setupChat(session: any) {
   document.getElementById('multi-cancel-btn')?.addEventListener('click', () => {
     multiSelectMode = false; selectedMessages.clear();
     document.getElementById('chat-header-container')?.classList.remove('multi-select-mode');
-    loadMessages(currentChatId!);
+    if (currentChatId) loadMessages(currentChatId!);
   });
   document.getElementById('multi-delete-btn')?.addEventListener('click', async () => {
     const type = confirm('Удалить у всех? (Отмена - только у меня)') ? 'all' : 'me';
@@ -961,7 +955,7 @@ export async function setupChat(session: any) {
   // --- ИЗБРАННОЕ ---
   document.getElementById('btn-favorites')?.addEventListener('click', async () => {
     if (!myUserId) return;
-    const { data: myMembers } = await supabase.from('chat_members').select('chat_id').eq('user_id', myUserId);
+    const { data: myMembers } = await supabase.from('chat_members').select('chat_id').eq('user_id', myUserId!);
     const myChatIds = myMembers?.map((m: any) => m.chat_id) || [];
     
     let favChatId = null;
@@ -973,7 +967,7 @@ export async function setupChat(session: any) {
     if (!favChatId) {
       const { data: newChat, error } = await supabase.from('chats').insert([{ title: 'Избранное', is_group: false }]).select().single();
       if (!error && newChat) {
-        await supabase.from('chat_members').insert([{ chat_id: newChat.id, user_id: myUserId }]);
+        await supabase.from('chat_members').insert([{ chat_id: newChat.id, user_id: myUserId! }]);
         favChatId = newChat.id;
       }
     }
@@ -1025,7 +1019,7 @@ export async function setupChat(session: any) {
     try {
       const { data: chat, error: chatError } = await supabase.from('chats').insert([{ title, is_group: true }]).select().single();
       if (chatError) throw chatError;
-      const { error: memberError } = await supabase.from('chat_members').insert([{ chat_id: chat.id, user_id: myUserId }]);
+      const { error: memberError } = await supabase.from('chat_members').insert([{ chat_id: chat.id, user_id: myUserId! }]);
       if (memberError) throw memberError;
       modal?.classList.remove('active');
       modalInput.value = '';
@@ -1048,7 +1042,7 @@ export async function setupChat(session: any) {
     try {
       const { data: user, error: userError } = await supabase.from('profiles').select('id').eq('username', targetUsername).single();
       if (userError || !user) throw new Error('Пользователь не найден');
-      const { error: memberError } = await supabase.from('chat_members').insert([{ chat_id: currentChatId, user_id: user.id }]);
+      const { error: memberError } = await supabase.from('chat_members').insert([{ chat_id: currentChatId!, user_id: user.id }]);
       if (memberError && memberError.code === '23505') throw new Error('Уже в чате');
       else if (memberError) throw memberError;
       alert(`Пользователь добавлен!`);
@@ -1058,8 +1052,8 @@ export async function setupChat(session: any) {
   // --- ОТПРАВКА ---
   messageTextInput?.addEventListener('input', () => {
     if (currentChatId) {
-      supabase.channel(`room_${currentChatId}`).send({
-        type: 'broadcast', event: 'typing', payload: { user_id: myUserId, username: myUsername }
+      supabase.channel(`room_${currentChatId!}`).send({
+        type: 'broadcast', event: 'typing', payload: { user_id: myUserId!, username: myUsername }
       });
     }
   });
@@ -1099,13 +1093,13 @@ export async function setupChat(session: any) {
       
       currentChatId = chat.id;
       await supabase.from('chat_members').insert([
-        { chat_id: currentChatId, user_id: myUserId },
-        { chat_id: currentChatId, user_id: pendingDirectChatUserId }
+        { chat_id: currentChatId!, user_id: myUserId! },
+        { chat_id: currentChatId!, user_id: pendingDirectChatUserId! }
       ]);
 
-      myChatIds.push(currentChatId);
-      currentChatMembersMap[pendingDirectChatUserId] = { username: pendingDirectChatUsername };
-      currentChatMembersMap[myUserId] = { username: myUsername };
+      myChatIds.push(currentChatId!);
+      currentChatMembersMap[pendingDirectChatUserId!] = { username: pendingDirectChatUsername };
+      currentChatMembersMap[myUserId!] = { username: myUsername };
 
       pendingDirectChatUserId = null;
       pendingDirectChatUsername = null;
@@ -1122,15 +1116,15 @@ export async function setupChat(session: any) {
     const msgId = generateId();
 
     const tempMsg = {
-        id: msgId, chat_id: currentChatId, text: finalPayload,
-        sender_id: myUserId, sender_name: myUsername, created_at: new Date().toISOString()
+        id: msgId, chat_id: currentChatId!, text: finalPayload,
+        sender_id: myUserId!, sender_name: myUsername, created_at: new Date().toISOString()
     };
     appendMessageHTML(tempMsg, true);
     
     // Рассылаем мгновенно всем участникам чата (без ожидания БД)
     currentRoomChannel?.send({ type: 'broadcast', event: 'new_message', payload: tempMsg });
     Object.keys(currentChatMembersMap).forEach(memberId => {
-      if (memberId !== myUserId) {
+      if (memberId !== myUserId!) {
         supabase.channel(`user_${memberId}`).send({ type: 'broadcast', event: 'notification', payload: tempMsg });
       }
     });
@@ -1139,7 +1133,7 @@ export async function setupChat(session: any) {
 
     // Сохраняем в Supabase для истории
     await supabase.from('messages').insert([
-      { id: msgId, chat_id: currentChatId, text: finalPayload, sender_id: myUserId }
+      { id: msgId, chat_id: currentChatId!, text: finalPayload, sender_id: myUserId! }
     ]);
     
     if (isNewChat) loadChats();
@@ -1158,16 +1152,16 @@ export async function setupChat(session: any) {
         
         if (myChatIds.includes(newMsg.chat_id)) {
            handleIncomingMessage(newMsg);
-        } else if (newMsg.sender_id !== myUserId) {
+        } else if (newMsg.sender_id !== myUserId!) {
            // Если нас добавили в новый чат
-           const { data: member } = await supabase.from('chat_members').select('chat_id').eq('chat_id', newMsg.chat_id).eq('user_id', myUserId).single();
+           const { data: member } = await supabase.from('chat_members').select('chat_id').eq('chat_id', newMsg.chat_id).eq('user_id', myUserId!).single();
            if (member) {
                myChatIds.push(newMsg.chat_id);
                handleIncomingMessage(newMsg);
            }
         }
       } else if (payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
-         if (currentChatId) loadMessages(currentChatId); // Простая перезагрузка
+         if (currentChatId) loadMessages(currentChatId!); // Простая перезагрузка
          loadChats();
       }
     })
@@ -1190,7 +1184,7 @@ export async function loadContactsForCompose() {
       .from('chat_members')
       .select('user_id, profiles(username)')
       .in('chat_id', directChatIds)
-      .neq('user_id', myUserId);
+      .neq('user_id', myUserId!);
       
     if (otherMembers) {
        users = otherMembers.map((m: any) => {
@@ -1276,7 +1270,7 @@ async function selectUserForChat(targetUserId: string, targetUsername: string) {
   
   if (!myUserId) return;
   
-  const { data: myMembers } = await supabase.from('chat_members').select('chat_id, chats!inner(is_group)').eq('user_id', myUserId).eq('chats.is_group', false);
+  const { data: myMembers } = await supabase.from('chat_members').select('chat_id, chats!inner(is_group)').eq('user_id', myUserId!).eq('chats.is_group', false);
   const myChatIds = myMembers?.map((m: any) => m.chat_id) || [];
   
   if (myChatIds.length > 0) {
@@ -1361,7 +1355,7 @@ async function loadChats(inArchive: boolean = false, forForwarding: boolean = fa
      return bTime - aTime;
   });
   
-  const states = getLocalObj(`chatStates_${myUserId}`);
+  const states = getLocalObj(`chatStates_${myUserId!}`);
 
   chatsList.innerHTML = '';
   visibleChats.forEach((m: any) => {
@@ -1373,7 +1367,7 @@ async function loadChats(inArchive: boolean = false, forForwarding: boolean = fa
 
     // Меняем название и аватарку только если это личный диалог, а не группа
     if (m.chats.is_group === false) {
-      const otherMember = allMembers?.find((am: any) => am.chat_id === m.chats.id && am.user_id !== myUserId);
+      const otherMember = allMembers?.find((am: any) => am.chat_id === m.chats.id && am.user_id !== myUserId!);
       if (otherMember && otherMember.profiles) {
           const profile: any = Array.isArray(otherMember.profiles) ? otherMember.profiles[0] : otherMember.profiles;
           if (profile) {
@@ -1433,10 +1427,10 @@ async function loadChats(inArchive: boolean = false, forForwarding: boolean = fa
 async function selectChat(chatId: string, chatTitle: string) {
   currentChatId = chatId;
   
-  const states = getLocalObj(`chatStates_${myUserId}`);
+  const states = getLocalObj(`chatStates_${myUserId!}`);
   if (states[chatId] && states[chatId].unread > 0) {
      states[chatId].unread = 0;
-     setLocalObj(`chatStates_${myUserId}`, states);
+     setLocalObj(`chatStates_${myUserId!}`, states);
      loadChats();
   }
 
@@ -1454,7 +1448,7 @@ async function selectChat(chatId: string, chatTitle: string) {
     members.forEach((m: any) => {
       const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
       currentChatMembersMap[m.user_id] = profile;
-      if (m.user_id !== myUserId && profile) otherUser = { id: m.user_id, ...profile };
+      if (m.user_id !== myUserId! && profile) otherUser = { id: m.user_id, ...profile };
     });
   }
 
@@ -1493,7 +1487,7 @@ async function selectChat(chatId: string, chatTitle: string) {
   // Подписка на печать
   currentRoomChannel
     .on('broadcast', { event: 'typing' }, (payload: any) => {
-       if (payload.payload.user_id !== myUserId) {
+       if (payload.payload.user_id !== myUserId!) {
           const statusEl = document.getElementById('active-chat-status')!;
           statusEl.innerText = 'печатает...';
           statusEl.style.color = '#3b82f6';
@@ -1590,7 +1584,7 @@ async function loadMessages(chatId: string) {
   renderPinnedBanner();
   messagesList.innerHTML = '';
   messages.forEach((msg: any) => {
-    const isMine = msg.sender_id === myUserId;
+    const isMine = msg.sender_id === myUserId!;
     const profile = Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles;
     msg.sender_name = profile?.username || 'Пользователь';
     appendMessageHTML(msg, isMine);
@@ -1600,20 +1594,23 @@ async function loadMessages(chatId: string) {
 function renderPinnedBanner() {
   const banner = document.getElementById('pinned-message-banner');
   if (!banner) return;
-
-  // Жестко приводим типы к string, чтобы TypeScript перестал ругаться на null
-  const chatId = currentChatId as string;
-  const uId = myUserId as string;
-
-  // Проверяем наличие нужных данных
-  if (!chatId || !pinnedMessages || !pinnedMessages[chatId]) {
+  
+  if (!currentChatId) {
      banner.style.display = 'none'; 
      return;
   }
-
+  
+  const chatId = currentChatId!;
+  const uId = myUserId!;
+  
+  if (!pinnedMessages || !pinnedMessages[chatId]) {
+     banner.style.display = 'none'; 
+     return;
+  }
+  
   const msg = pinnedMessages[chatId];
   const text = typeof msg.parsedText === 'object' ? msg.parsedText.text : msg.text;
-
+  
   banner.innerHTML = `
     <div class="chat-banner-content" onclick="document.getElementById('msg-${msg.id}')?.scrollIntoView({behavior: 'smooth'})">
       <div class="chat-banner-title">Закрепленное сообщение</div>
@@ -1641,7 +1638,7 @@ async function forwardMessagesTo(chatId: string) {
   document.getElementById('forward-modal')?.classList.remove('active');
   const payloadArr = forwardingMessages.map(fMsg => {
      const origText = typeof fMsg.parsedText === 'object' ? fMsg.parsedText.text : fMsg.text;
-     return { chat_id: chatId, sender_id: myUserId, text: JSON.stringify({ type: 'forward', author: fMsg.sender_name || 'User', text: origText }) };
+     return { chat_id: chatId, sender_id: myUserId!, text: JSON.stringify({ type: 'forward', author: fMsg.sender_name || 'User', text: origText }) };
   });
   await supabase.from('messages').insert(payloadArr);
   forwardingMessages = [];
@@ -1720,7 +1717,7 @@ export async function loadCalls() {
   const { data: callsData, error } = await supabase
     .from('calls')
     .select('*')
-    .or(`caller_id.eq.${myUserId},receiver_id.eq.${myUserId}`)
+    .or(`caller_id.eq.${myUserId!},receiver_id.eq.${myUserId!}`)
     .order('started_at', { ascending: false });
 
   if (error || !callsData) {
@@ -1742,7 +1739,7 @@ export async function loadCalls() {
 
   callsList.innerHTML = '';
   callsData.forEach((call: any) => {
-     const isOutgoing = call.caller_id === myUserId;
+     const isOutgoing = call.caller_id === myUserId!;
      const otherUserId = isOutgoing ? call.receiver_id : call.caller_id;
      const profile = profilesMap[otherUserId];
      
