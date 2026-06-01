@@ -1598,19 +1598,28 @@ async function loadMessages(chatId: string) {
 }
 
 function renderPinnedBanner() {
-  const banner = document.getElementById('pinned-message-banner')!;
-  const chatId = currentChatId;
-  if (!chatId || !pinnedMessages[chatId]) {
-     banner.style.display = 'none'; return;
+  const banner = document.getElementById('pinned-message-banner');
+  if (!banner) return;
+
+  // Жестко приводим типы к string, чтобы TypeScript перестал ругаться на null
+  const chatId = currentChatId as string;
+  const uId = myUserId as string;
+
+  // Проверяем наличие нужных данных
+  if (!chatId || !pinnedMessages || !pinnedMessages[chatId]) {
+     banner.style.display = 'none'; 
+     return;
   }
+
   const msg = pinnedMessages[chatId];
   const text = typeof msg.parsedText === 'object' ? msg.parsedText.text : msg.text;
+
   banner.innerHTML = `
     <div class="chat-banner-content" onclick="document.getElementById('msg-${msg.id}')?.scrollIntoView({behavior: 'smooth'})">
       <div class="chat-banner-title">Закрепленное сообщение</div>
       <div class="chat-banner-text">${text}</div>
     </div>
-    <button class="chat-banner-close" onclick="event.stopPropagation(); delete pinnedMessages['${chatId}']; setLocalObj('pinnedMessages_${myUserId}', pinnedMessages); document.getElementById('pinned-message-banner').style.display='none';">✖</button>
+    <button class="chat-banner-close" onclick="event.stopPropagation(); delete pinnedMessages['${chatId}']; setLocalObj('pinnedMessages_${uId}', pinnedMessages); document.getElementById('pinned-message-banner').style.display='none';">✖</button>
   `;
   banner.style.display = 'flex';
 }
