@@ -92,6 +92,12 @@ export function renderChat(container: HTMLDivElement) {
             
             <div class="input-area" id="input-area">
               <div id="reply-banner" class="reply-banner" style="display: none;"></div>
+              
+              <button id="attach-btn" style="background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 0 10px; transition: color 0.2s;">
+                <i class="fas fa-paperclip"></i>
+              </button>
+              <input type="file" id="chat-file-input" style="display: none;">
+
               <div class="input-wrapper">
                 <input type="text" id="message-text" placeholder="Написать сообщение..." autocomplete="off" />
               </div>
@@ -278,21 +284,19 @@ export function renderChat(container: HTMLDivElement) {
     <div id="edit-profile-modal" class="modal-overlay">
       <div class="modal-content glass-panel">
         <h3>Редактировать профиль</h3>
+        
         <div class="input-group" style="margin-bottom: 12px; text-align: left;">
-          <label style="display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Аватарка (URL)</label>
-          <input type="text" id="edit-avatar-url" placeholder="https://..." autocomplete="off" style="color: white; background: rgba(0,0,0,0.2);">
+          <label style="display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Загрузить аватар с устройства</label>
+          <input type="file" id="edit-avatar-file" accept="image/*" style="color: white; background: rgba(0,0,0,0.2); width: 100%; border-radius: 10px; padding: 8px;">
         </div>
+
         <div class="input-group" style="margin-bottom: 12px; text-align: left;">
-          <label style="display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Цвет фона аватара</label>
-          <input type="color" id="edit-avatar-bg" value="#8a2be2" style="width: 100%; height: 40px; padding: 0; border-radius: 10px; cursor: pointer; border: none; background: transparent;">
+          <label style="display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Или ссылка (URL)</label>
+          <input type="text" id="edit-avatar-url" placeholder="https://..." autocomplete="off" style="color: white; background: rgba(0,0,0,0.2);">
         </div>
         <div class="input-group" style="margin-bottom: 12px; text-align: left;">
           <label style="display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">О себе</label>
           <input type="text" id="edit-description" placeholder="Немного о себе..." autocomplete="off" style="color: white; background: rgba(0,0,0,0.2);">
-        </div>
-        <div class="input-group" style="margin-bottom: 24px; text-align: left;">
-          <label style="display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 4px;">Дата рождения</label>
-          <input type="date" id="edit-birthdate" style="color: white; background: rgba(0,0,0,0.2); width: 100%; padding: 16px 20px; border-radius: 20px; border: 1px solid var(--glass-border);">
         </div>
         <div class="modal-actions">
           <button id="edit-cancel" class="btn-cancel">Отмена</button>
@@ -713,31 +717,49 @@ export async function setupChat(session: any) {
   const editModal = document.getElementById('edit-profile-modal');
   editBtn?.addEventListener('click', () => {
     (document.getElementById('edit-avatar-url') as HTMLInputElement).value = profileData.avatarUrl || '';
-    (document.getElementById('edit-avatar-bg') as HTMLInputElement).value = profileData.avatarBg || '#8a2be2';
-    (document.getElementById('edit-description') as HTMLInputElement).value = profileData.description || '';
-    (document.getElementById('edit-birthdate') as HTMLInputElement).value = profileData.birthdate || '';
+    const descInput = document.getElementById('edit-description') as HTMLInputElement | null;
+    if (descInput) descInput.value = profileData.description || '';
     editModal?.classList.add('active');
   });
 
   document.getElementById('edit-cancel')?.addEventListener('click', () => editModal?.classList.remove('active'));
-  document.getElementById('edit-save')?.addEventListener('click', () => {
-    profileData.avatarUrl = (document.getElementById('edit-avatar-url') as HTMLInputElement).value.trim();
-    profileData.avatarBg = (document.getElementById('edit-avatar-bg') as HTMLInputElement).value;
+  document.getElementById('edit-save')?.addEventListener('click', async () => {
+    const editSaveBtn = document.getElementById('edit-save') as HTMLButtonElement;
+    editSaveBtn.innerText = 'Загрузка...';
+    editSaveBtn.disabled = true;
+
+    // Сначала проверим, загрузил ли человек файл
+    const fileInput = document.getElementById('edit-avatar-file') as HTMLInputElement;
+    let finalAvatarUrl = (document.getElementById('edit-avatar-url') as HTMLInputElement).value.trim();
+
+    if (fileInput.files && fileInput.files.length > 0) {
+       const file = fileInput.files[0];
+       const fileExt = file.name.split('.').pop();
+       const filePath = `${myUserId}-${Math.random()}.${fileExt}`;
+       
+       // Грузим в Supabase Storage (в ведро avatars)
+       const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file);
+       if (!uploadError) {
+          const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+          finalAvatarUrl = data.publicUrl; // Получаем публичную ссылку на картинку!
+       }
+    }
+
+    profileData.avatarUrl = finalAvatarUrl;
+    profileData.avatarBg = '#8a2be2'; // сбрасываем цвет
     const newDesc = (document.getElementById('edit-description') as HTMLInputElement).value.trim();
     profileData.description = newDesc || 'Не указано';
-    const newBirth = (document.getElementById('edit-birthdate') as HTMLInputElement).value;
-    profileData.birthdate = newBirth || 'Не указана';
 
     localStorage.setItem(`profile_${myUserId!}`, JSON.stringify(profileData));
     updateAvatarUI(profileData.avatarUrl, profileData.avatarBg, myUsername.charAt(0));
     
-    supabase.from('profiles').update({
+    await supabase.from('profiles').update({
       avatar_url: profileData.avatarUrl,
-      avatar_bg: profileData.avatarBg,
-      description: profileData.description,
-      birthdate: profileData.birthdate
-    }).eq('id', myUserId!).then();
+      description: profileData.description
+    }).eq('id', myUserId!);
 
+    editSaveBtn.innerText = 'Сохранить';
+    editSaveBtn.disabled = false;
     editModal?.classList.remove('active');
   });
 
@@ -1173,6 +1195,51 @@ export async function setupChat(session: any) {
     
     if (isNewChat) loadChats();
   }
+
+  // --- ЛОГИКА ОТПРАВКИ ФАЙЛОВ В ЧАТ ---
+  const attachBtn = document.getElementById('attach-btn');
+  const chatFileInput = document.getElementById('chat-file-input') as HTMLInputElement;
+
+  attachBtn?.addEventListener('click', () => chatFileInput.click()); // Открываем проводник по клику на скрепку
+
+  chatFileInput?.addEventListener('change', async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file || !currentChatId) return;
+
+    // Блокируем инпут, пока грузится файл
+    messageTextInput.placeholder = 'Отправка файла...';
+    messageTextInput.disabled = true;
+
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${currentChatId}/${Date.now()}_${Math.random()}.${fileExt}`;
+    
+    // Грузим в хранилище Supabase
+    const { error: uploadError } = await supabase.storage.from('chat_files').upload(filePath, file);
+    
+    messageTextInput.placeholder = 'Написать сообщение...';
+    messageTextInput.disabled = false;
+    chatFileInput.value = ''; // Сбрасываем инпут
+
+    if (uploadError) {
+       alert('Ошибка загрузки файла!');
+       return;
+    }
+
+    // Получаем ссылку на файл
+    const { data } = supabase.storage.from('chat_files').getPublicUrl(filePath);
+    
+    // Формируем JSON-сообщение о файле
+    const payload = JSON.stringify({
+       type: 'file',
+       url: data.publicUrl,
+       name: file.name,
+       isImage: file.type.startsWith('image/')
+    });
+
+    // Отправляем как обычное сообщение!
+    messageTextInput.value = payload;
+    sendMsg(); 
+  });
 
   const msgTopic = 'messages_channel';
   const existingMsgChannel = supabase.getChannels().find(c => c.topic === msgTopic || c.topic === `realtime:${msgTopic}`);
@@ -1720,6 +1787,7 @@ function appendMessageHTML(msg: any, isMine: boolean) {
   const avatarStyle = avatarUrl ? `background: url('${avatarUrl}') center/cover;` : `background: ${avatarBg};`;
   const avatarHtml = !isMine ? `<div class="msg-avatar" style="${avatarStyle}">${avatarUrl ? '' : firstLetter}</div>` : '';
 
+  // Разбор JSON
   let parsed: any = null;
   try { parsed = JSON.parse(msg.text); msg.parsedText = parsed; } catch(e) { msg.parsedText = msg.text; }
   
@@ -1729,6 +1797,13 @@ function appendMessageHTML(msg: any, isMine: boolean) {
         contentHtml = `<div class="quoted-message"><div class="quoted-author">${parsed.author}</div><div class="quoted-text">${parsed.origText}</div></div><span>${parsed.text}</span>`;
      } else if (parsed.type === 'forward') {
         contentHtml = `<div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">Переслано от ${parsed.author}</div><span>${parsed.text}</span>`;
+     } else if (parsed.type === 'file') {
+        // НОВОЕ: ОТРИСОВКА ФАЙЛОВ И КАРТИНОК
+        if (parsed.isImage) {
+           contentHtml = `<img src="${parsed.url}" style="max-width: 100%; border-radius: 12px; margin-bottom: 4px; cursor: pointer; border: 1px solid var(--glass-border);" onclick="window.open('${parsed.url}', '_blank')"><br><span style="font-size: 11px; opacity: 0.7;">${parsed.name}</span>`;
+        } else {
+           contentHtml = `<a href="${parsed.url}" target="_blank" style="color: #3b82f6; text-decoration: none; display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;"><i class="fas fa-file-download" style="font-size: 20px;"></i> <span style="word-break: break-all;">${parsed.name}</span></a>`;
+        }
      } else {
         contentHtml = `<span>${msg.text}</span>`;
      }
