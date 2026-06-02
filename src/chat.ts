@@ -48,8 +48,53 @@ export function renderChat(container: HTMLDivElement) {
         .tg-sheet-close svg { width: 100%; height: 100%; fill: #64748b; transition: fill 0.2s; }
         .tg-sheet-close:hover svg { fill: white; }
         .tg-action-item { display: flex; align-items: center; padding: 12px 16px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .tg-action-item:hover { background: rgba(255,255,255,0.05); }
         .tg-action-icon { width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; margin-right: 12px; }
+        
+        @media (hover: hover) {
+          .chat-item:hover { background: rgba(255,255,255,0.05); }
+          .tg-action-item:hover { background: rgba(255,255,255,0.05); }
+        }
+        .message-bubble {
+          word-break: break-word;
+          overflow-wrap: break-word;
+        }
+
+        /* Анимация и стили для галочек */
+        .msg-ticks {
+          font-size: 11px;
+          margin-left: 6px;
+          display: inline-flex;
+          align-items: center;
+        }
+        .msg-ticks .read { color: #34d399; } /* Зеленые галочки (прочитано) */
+        .msg-ticks .delivered { color: var(--text-muted); } /* Серая галочка (отправлено) */
+
+        /* Telegram-анимация контекстного меню */
+        .context-backdrop {
+          position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+          background: rgba(0, 0, 0, 0.4);
+          z-index: 9998; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        .context-backdrop.active { opacity: 1; pointer-events: auto; }
+        
+        .message-bubble {
+          transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s;
+        }
+        .message-bubble.context-active {
+          transform: scale(0.95);
+          z-index: 9999;
+          position: relative;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .context-menu {
+          z-index: 10000;
+          transform-origin: bottom center;
+          animation: popUp 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        @keyframes popUp {
+          from { opacity: 0; transform: scale(0.8) translateY(10px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
       </style>
       
       <aside class="sidebar glass-panel" id="sidebar-view">
@@ -340,6 +385,7 @@ export function renderChat(container: HTMLDivElement) {
       </div>
     </div>
 
+    <div id="context-backdrop" class="context-backdrop"></div>
     <div id="context-menu" class="context-menu"></div>
 
     <nav class="bottom-nav glass-panel">
@@ -570,10 +616,13 @@ export function bindContextMenu(el: HTMLElement, data: any, type: 'chat' | 'mess
   let pressTimer: number;
   
   const showMenu = (e: MouseEvent | TouchEvent, x: number, y: number) => {
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault(); // Защита от вызова системного меню на телефоне
     if (multiSelectMode && type === 'message') return; 
     
     const ctxMenu = document.getElementById('context-menu')!;
+    const backdrop = document.getElementById('context-backdrop');
+    const bubble = el.closest('.message-row')?.querySelector('.message-bubble') as HTMLElement || el;
+
     ctxMenu.innerHTML = '';
     
     if (type === 'chat') {
@@ -596,74 +645,114 @@ export function bindContextMenu(el: HTMLElement, data: any, type: 'chat' | 'mess
       ctxMenu.innerHTML += `<div class="context-menu-item" id="ctx-msg-fwd">Переслать</div>`;
       ctxMenu.innerHTML += `<div class="context-menu-item" id="ctx-msg-pin">${isPinned ? 'Открепить' : 'Закрепить'}</div>`;
       ctxMenu.innerHTML += `<div class="context-menu-item" id="ctx-msg-select">Выбрать несколько</div>`;
+      
+      // TELEGRAM ЭФФЕКТ ТОЛЬКО ДЛЯ СООБЩЕНИЙ
+      bubble.classList.add('context-active');
+      backdrop?.classList.add('active');
     }
 
-    ctxMenu.style.left = `${x}px`;
-    ctxMenu.style.top = `${y}px`;
+    // РЕШЕНИЕ БАГА: Правильный показ с очисткой старых стилей
+    ctxMenu.style.display = 'block'; 
+    ctxMenu.style.visibility = 'hidden'; // Прячем на микросекунду для просчета высоты
+    const menuHeight = ctxMenu.offsetHeight || 220; 
+    let calculatedTop = y - menuHeight - 15; 
+    if (calculatedTop < 20) calculatedTop = y + 20; 
+
+    ctxMenu.style.left = Math.max(10, Math.min(x - 100, window.innerWidth - 210)) + 'px';
+    ctxMenu.style.top = calculatedTop + 'px';
+    ctxMenu.style.visibility = 'visible'; // Возвращаем видимость
     ctxMenu.classList.add('active');
 
-    document.getElementById('ctx-chat-pin')?.addEventListener('click', () => {
+    // ЖЕСТКОЕ ЗАКРЫТИЕ: Убиваем окно на 100%
+    const forceClose = () => {
+      ctxMenu.style.display = 'none'; // ПРИНУДИТЕЛЬНО УБИРАЕМ
+      ctxMenu.classList.remove('active');
+      backdrop?.classList.remove('active');
+      bubble.classList.remove('context-active');
+      document.removeEventListener('click', closeMenu);
+      document.removeEventListener('touchstart', closeMenu);
+    };
+
+    const closeMenu = (event?: any) => {
+      if (event && ctxMenu.contains(event.target)) return; 
+      forceClose();
+    };
+
+    // Даем браузеру паузу, чтобы он не закрыл меню сразу при открытии
+    setTimeout(() => {
+      document.addEventListener('click', closeMenu);
+      document.addEventListener('touchstart', closeMenu);
+    }, 50);
+
+    // --- ОБРАБОТЧИКИ НАЖАТИЙ (с моментальным закрытием forceClose) ---
+    document.getElementById('ctx-chat-pin')?.addEventListener('click', (e) => {
+      e.stopPropagation(); forceClose();
       if (pinnedChats.includes(data.id)) pinnedChats = pinnedChats.filter(id => id !== data.id);
       else if (pinnedChats.length < 3) pinnedChats.push(data.id);
-      else alert('Можно закрепить не более 3 чатов');
-      setLocalList(`pinnedChats_${myUserId!}`, pinnedChats); loadChats(); ctxMenu.classList.remove('active');
+      setLocalList(`pinnedChats_${myUserId!}`, pinnedChats); loadChats(); 
     });
-    document.getElementById('ctx-chat-archive')?.addEventListener('click', () => {
+    
+    document.getElementById('ctx-chat-archive')?.addEventListener('click', (e) => {
+      e.stopPropagation(); forceClose();
       if (archivedChats.includes(data.id)) archivedChats = archivedChats.filter(id => id !== data.id);
       else archivedChats.push(data.id);
-      setLocalList(`archivedChats_${myUserId!}`, archivedChats); loadChats(); ctxMenu.classList.remove('active');
+      setLocalList(`archivedChats_${myUserId!}`, archivedChats); loadChats(); 
     });
-    document.getElementById('ctx-chat-delme')?.addEventListener('click', () => {
+    
+    // Вызов модальных окон для удаления
+    document.getElementById('ctx-chat-delme')?.addEventListener('click', (e) => {
+      e.stopPropagation(); forceClose();
       chatToDelete = { id: data.id, type: 'me' };
       document.getElementById('delete-chat-text')!.innerHTML = 'Вы точно хотите удалить <b>у себя</b> переписку?';
       document.getElementById('confirm-delete-chat-modal')?.classList.add('active');
-      ctxMenu.classList.remove('active');
     });
-    document.getElementById('ctx-chat-delall')?.addEventListener('click', () => {
+    
+    document.getElementById('ctx-chat-delall')?.addEventListener('click', (e) => {
+      e.stopPropagation(); forceClose();
       chatToDelete = { id: data.id, type: 'all' };
       document.getElementById('delete-chat-text')!.innerHTML = 'Вы точно хотите удалить переписку <b>у обоих</b> пользователей?';
       document.getElementById('confirm-delete-chat-modal')?.classList.add('active');
-      ctxMenu.classList.remove('active');
     });
 
-    document.getElementById('ctx-msg-edit')?.addEventListener('click', () => {
+    document.getElementById('ctx-msg-edit')?.addEventListener('click', (e) => {
+      e.stopPropagation(); forceClose();
       editingMessageId = data.id;
       const messageTextInput = document.getElementById('message-text') as HTMLInputElement;
       messageTextInput.value = typeof data.parsedText === 'object' ? data.parsedText.text : data.text;
-      messageTextInput.focus();
-      ctxMenu.classList.remove('active');
+      messageTextInput.focus(); 
     });
-    document.getElementById('ctx-msg-reply')?.addEventListener('click', () => {
-      replyingToMessage = data;
-      showReplyBanner();
-      ctxMenu.classList.remove('active');
-    });
-    document.getElementById('ctx-msg-copy')?.addEventListener('click', () => {
-      navigator.clipboard.writeText(typeof data.parsedText === 'object' ? data.parsedText.text : data.text);
-      ctxMenu.classList.remove('active');
-    });
-    document.getElementById('ctx-msg-fwd')?.addEventListener('click', () => {
-      forwardingMessages = [data]; openForwardModal(); ctxMenu.classList.remove('active');
-    });
-    document.getElementById('ctx-msg-pin')?.addEventListener('click', () => {
+    
+    document.getElementById('ctx-msg-reply')?.addEventListener('click', (e) => { e.stopPropagation(); forceClose(); replyingToMessage = data; showReplyBanner(); });
+    document.getElementById('ctx-msg-copy')?.addEventListener('click', (e) => { e.stopPropagation(); forceClose(); navigator.clipboard.writeText(typeof data.parsedText === 'object' ? data.parsedText.text : data.text); });
+    document.getElementById('ctx-msg-fwd')?.addEventListener('click', (e) => { e.stopPropagation(); forceClose(); forwardingMessages = [data]; openForwardModal(); });
+    
+    document.getElementById('ctx-msg-pin')?.addEventListener('click', (e) => {
+      e.stopPropagation(); forceClose();
       const chatId = currentChatId!;
       if (pinnedMessages[chatId]?.id === data.id) delete pinnedMessages[chatId];
       else pinnedMessages[chatId] = data;
-      setLocalObj(`pinnedMessages_${myUserId!}`, pinnedMessages);
-      renderPinnedBanner(); ctxMenu.classList.remove('active');
+      setLocalObj(`pinnedMessages_${myUserId!}`, pinnedMessages); renderPinnedBanner(); 
     });
-    document.getElementById('ctx-msg-select')?.addEventListener('click', () => {
+    
+    document.getElementById('ctx-msg-select')?.addEventListener('click', (e) => {
+      e.stopPropagation(); forceClose();
       multiSelectMode = true; selectedMessages.clear(); selectedMessages.add(data.id);
       document.getElementById('chat-header-container')?.classList.add('multi-select-mode');
-      if (currentChatId) loadMessages(currentChatId!); ctxMenu.classList.remove('active');
+      if (currentChatId) loadMessages(currentChatId!); 
     });
   };
 
   el.addEventListener('contextmenu', (e) => showMenu(e, e.clientX, e.clientY));
   el.addEventListener('touchstart', (e) => {
-    pressTimer = window.setTimeout(() => showMenu(e, e.touches[0].clientX, e.touches[0].clientY), 600);
+    pressTimer = window.setTimeout(() => {
+      showMenu(e, e.touches[0].clientX, e.touches[0].clientY);
+    }, 400); 
+  }, { passive: true });
+  
+  el.addEventListener('touchend', () => {
+    clearTimeout(pressTimer);
   });
-  el.addEventListener('touchend', () => clearTimeout(pressTimer));
+  
   el.addEventListener('touchmove', () => clearTimeout(pressTimer));
 }
 
@@ -1125,8 +1214,32 @@ export async function setupChat(session: any) {
     if (!text || (!currentChatId && !pendingDirectChatUserId)) return;
     
     if (editingMessageId) {
-      await supabase.from('messages').update({ text }).eq('id', editingMessageId);
-      editingMessageId = null; messageTextInput.value = ''; return;
+      const editedId = editingMessageId;
+      editingMessageId = null; 
+      messageTextInput.value = ''; 
+      
+      // 1. Мгновенно меняем текст в самом чате
+      const msgBubble = document.getElementById(`msg-${editedId}`)?.querySelector('.message-bubble');
+      if (msgBubble) {
+         const textSpan = msgBubble.querySelector('span:not(.msg-time)');
+         if (textSpan) textSpan.innerHTML = text; 
+      }
+      
+      // --- НОВОЕ: ОБНОВЛЯЕМ ЗАКРЕПЛЕННОЕ СООБЩЕНИЕ ---
+      if (currentChatId && pinnedMessages[currentChatId]?.id === editedId) {
+         pinnedMessages[currentChatId].text = text;
+         // На всякий случай обновляем и распарсенный текст
+         try { pinnedMessages[currentChatId].parsedText = JSON.parse(text); } 
+         catch(e) { pinnedMessages[currentChatId].parsedText = text; }
+         
+         setLocalObj(`pinnedMessages_${myUserId!}`, pinnedMessages);
+         renderPinnedBanner(); // Сразу перерисовываем шапку с новым текстом
+      }
+      // -----------------------------------------------
+      
+      // 2. Отправляем в базу
+      await supabase.from('messages').update({ text }).eq('id', editedId);
+      return;
     }
 
     let finalPayload: string = text;
@@ -1261,7 +1374,22 @@ export async function setupChat(session: any) {
            }
         }
       } else if (payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
-         if (currentChatId) loadMessages(currentChatId!); 
+         // --- НОВОЕ: ПРОВЕРЯЕМ, НЕ ИЗМЕНИЛИ ЛИ ЗАКРЕПЛЕННОЕ СООБЩЕНИЕ ---
+         if (payload.eventType === 'UPDATE') {
+            const updatedMsg = payload.new;
+            if (pinnedMessages[updatedMsg.chat_id] && pinnedMessages[updatedMsg.chat_id].id === updatedMsg.id) {
+               pinnedMessages[updatedMsg.chat_id].text = updatedMsg.text;
+               try { 
+                   pinnedMessages[updatedMsg.chat_id].parsedText = JSON.parse(updatedMsg.text); 
+               } catch(e) { 
+                   pinnedMessages[updatedMsg.chat_id].parsedText = updatedMsg.text; 
+               }
+               setLocalObj(`pinnedMessages_${myUserId!}`, pinnedMessages);
+            }
+         }
+         // ---------------------------------------------------------------
+         
+         if (currentChatId) loadMessages(currentChatId!); // Перезагружаем чат
          loadChats();
       }
     })
@@ -1653,6 +1781,15 @@ async function selectChat(chatId: string, chatTitle: string) {
     .on('broadcast', { event: 'new_message' }, (payload: any) => {
        handleIncomingMessage(payload.payload);
     })
+    // НОВЫЙ БЛОК: СЛУШАЕМ ПРОЧТЕНИЕ СООБЩЕНИЙ
+    .on('broadcast', { event: 'messages_read' }, (payload: any) => {
+       const readIds = payload.payload.ids;
+       readIds.forEach((id: string) => {
+          const tickEl = document.getElementById(`ticks-${id}`);
+          // Меняем серую галочку на двойную зеленую в реальном времени!
+          if (tickEl) tickEl.innerHTML = '<i class="fas fa-check-double read"></i>'; 
+       });
+    })
     .subscribe();
 
   document.getElementById('no-chat-selected')!.style.display = 'none';
@@ -1699,18 +1836,30 @@ function setupOtherUserProfile(userId: string) {
 async function loadMessages(chatId: string) {
   const messagesList = document.getElementById('messages-list');
   if (!messagesList) return;
-  const { data: messages, error } = await supabase.from('messages').select('id, text, sender_id, created_at, profiles(username)').eq('chat_id', chatId).order('created_at', { ascending: true });
+  const { data: messages, error } = await supabase.from('messages').select('id, text, sender_id, created_at, is_read, profiles(username)').eq('chat_id', chatId).order('created_at', { ascending: true });
   if (error) return console.error(error);
   renderedMessageIds.clear(); 
   
   renderPinnedBanner();
   messagesList.innerHTML = '';
+  
+  const unreadIds: string[] = []; // Собираем ID непрочитанных НАМ чужих сообщений
+
   messages.forEach((msg: any) => {
     const isMine = msg.sender_id === myUserId!;
+    if (!isMine && !msg.is_read) unreadIds.push(msg.id); // Если чужое и не прочитано - в массив
+
     const profile = Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles;
     msg.sender_name = profile?.username || 'Пользователь';
     appendMessageHTML(msg, isMine);
   });
+
+  // Отмечаем их как прочитанные в базе и отправляем сигнал собеседнику
+  if (unreadIds.length > 0) {
+     await supabase.from('messages').update({ is_read: true }).in('id', unreadIds);
+     // Рассылаем событие, чтобы у собеседника галочки мгновенно стали зелеными
+     currentRoomChannel?.send({ type: 'broadcast', event: 'messages_read', payload: { ids: unreadIds } });
+  }
 }
 
 function renderPinnedBanner() {
@@ -1787,7 +1936,6 @@ function appendMessageHTML(msg: any, isMine: boolean) {
   const avatarStyle = avatarUrl ? `background: url('${avatarUrl}') center/cover;` : `background: ${avatarBg};`;
   const avatarHtml = !isMine ? `<div class="msg-avatar" style="${avatarStyle}">${avatarUrl ? '' : firstLetter}</div>` : '';
 
-  // Разбор JSON
   let parsed: any = null;
   try { parsed = JSON.parse(msg.text); msg.parsedText = parsed; } catch(e) { msg.parsedText = msg.text; }
   
@@ -1798,9 +1946,9 @@ function appendMessageHTML(msg: any, isMine: boolean) {
      } else if (parsed.type === 'forward') {
         contentHtml = `<div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">Переслано от ${parsed.author}</div><span>${parsed.text}</span>`;
      } else if (parsed.type === 'file') {
-        // НОВОЕ: ОТРИСОВКА ФАЙЛОВ И КАРТИНОК
         if (parsed.isImage) {
-           contentHtml = `<img src="${parsed.url}" style="max-width: 100%; border-radius: 12px; margin-bottom: 4px; cursor: pointer; border: 1px solid var(--glass-border);" onclick="window.open('${parsed.url}', '_blank')"><br><span style="font-size: 11px; opacity: 0.7;">${parsed.name}</span>`;
+           // ФОТОГРАФИИ БЕЗ ТЕКСТА И С УМЕНЬШЕННЫМИ РАМКАМИ
+           contentHtml = `<img src="${parsed.url}" style="max-width: 100%; border-radius: 8px; cursor: pointer; display: block;" onclick="window.open('${parsed.url}', '_blank')">`;
         } else {
            contentHtml = `<a href="${parsed.url}" target="_blank" style="color: #3b82f6; text-decoration: none; display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;"><i class="fas fa-file-download" style="font-size: 20px;"></i> <span style="word-break: break-all;">${parsed.name}</span></a>`;
         }
@@ -1810,6 +1958,11 @@ function appendMessageHTML(msg: any, isMine: boolean) {
   } else {
      contentHtml = `<span>${msg.text}</span>`;
   }
+
+  // ЛОГИКА ГАЛОЧЕК
+  const ticksHtml = isMine 
+    ? `<span class="msg-ticks" id="ticks-${msg.id}">${msg.is_read ? '<i class="fas fa-check-double read"></i>' : '<i class="fas fa-check delivered"></i>'}</span>` 
+    : '';
 
   const row = document.createElement('div');
   row.className = `message-row ${isMine ? 'mine' : 'other'}`;
@@ -1823,7 +1976,7 @@ function appendMessageHTML(msg: any, isMine: boolean) {
     <div class="message-bubble">
       ${(!isMine && currentChatIsGroup) ? `<div class="msg-author">${msg.sender_name}</div>` : ''}
       ${contentHtml}
-      <span class="msg-time">${timeString}</span>
+      <span class="msg-time">${timeString}${ticksHtml}</span>
     </div>
   `;
   
