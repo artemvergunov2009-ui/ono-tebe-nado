@@ -105,7 +105,6 @@ export function setupAuth() {
 
         const { error } = await supabase.auth.signUp({ email, password, options: { data: { username } } });
         if (error) throw error;
-        alert('Регистрация прошла успешно! Теперь вы можете войти.');
         toggleLink.click(); // Возвращаем форму в режим логина
       }
     } catch (err: any) {
