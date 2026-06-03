@@ -274,11 +274,10 @@ input:checked + .slider:before { transform: translateX(20px); }
 @media (max-width: 960px) {
     .mobile-only { display: block; }
     
-    /* 1. Главный контейнер */
+    /* 1. Главный контейнер строго на весь экран */
     .app-container {
         width: 100vw !important;
         height: 100dvh !important;
-        max-height: 100dvh !important;
         margin: 0 !important;
         border-radius: 0 !important;
         border: none !important;
@@ -286,40 +285,43 @@ input:checked + .slider:before { transform: translateX(20px); }
         flex-direction: column !important;
         box-sizing: border-box !important;
         padding-top: max(env(safe-area-inset-top), 47px) !important;
-        padding-bottom: env(safe-area-inset-bottom) !important;
+        padding-bottom: 0 !important; /* Убираем отступ, так как меню теперь fixed */
     }
 
-    /* 2. ИСПРАВЛЕННЫЙ БЛОК: Убрали display !important, чтобы скрипт мог скрывать окна */
+    /* 2. ПРИБИВАЕМ МЕНЮ ГВОЗДЯМИ К НИЗУ ЭКРАНА */
+    .bottom-nav {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        z-index: 9999 !important;
+        /* Учитываем системную полоску снизу на iOS/Android */
+        padding-bottom: max(env(safe-area-inset-bottom), 15px) !important; 
+        background: #1a103c !important; /* Чтобы контент не просвечивал под меню */
+        border-top: 1px solid rgba(255, 255, 255, 0.05) !important; /* Легкий разделитель */
+    }
+
+    /* 3. Отступаем снизу у всех экранов, чтобы контент не прятался под меню */
     #sidebar-view, 
     #chats-main-view, 
     #calls-view, 
     #settings-view {
-        width: 100% !important;
         height: 100% !important;
-        flex: 1 !important; 
+        box-sizing: border-box !important;
+        /* 75px - это примерная высота твоего меню. Сообщения не будут улетать под него */
+        padding-bottom: calc(75px + env(safe-area-inset-bottom)) !important; 
         border-radius: 0 !important;
+        border-bottom: none !important;
         border: none !important;
         background: transparent !important;
     }
 
-    /* 3. Список чатов */
+    /* 4. Списки чатов должны скроллиться нормально */
     #chats-list, 
     .chats-list-container {
         flex: 1 !important;
         overflow-y: auto !important;
-        height: auto !important;
-    }
-
-    /* 4. Нижняя панель */
-    .bottom-nav {
-        width: 100% !important;
-        margin-top: auto !important;
-        border-radius: 0 !important;
-        border-left: none !important;
-        border-right: none !important;
-        border-bottom: none !important;
-        border-top: 1px solid var(--glass-border);
-        background: rgba(15, 12, 41, 0.8); /* Делаем подложку темной, чтобы контент не накладывался */
-        padding: 12px 18px; /* Немного уменьшаем высоту для мобилок */
+        height: 100% !important;
     }
 } 
