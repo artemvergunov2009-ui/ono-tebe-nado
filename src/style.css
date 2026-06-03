@@ -285,10 +285,35 @@ input:checked + .slider:before { transform: translateX(20px); }
         flex-direction: column !important;
         box-sizing: border-box !important;
         padding-top: max(env(safe-area-inset-top), 47px) !important;
-        padding-bottom: 0 !important; /* Убираем отступ, так как меню теперь fixed */
+        padding-bottom: 0 !important;
     }
 
-    /* 2. ПРИБИВАЕМ МЕНЮ ГВОЗДЯМИ К НИЗУ ЭКРАНА */
+    /* 2. Экраны занимают 100% высоты */
+    #sidebar-view, 
+    #chats-main-view, 
+    #calls-view, 
+    #settings-view {
+        width: 100% !important;
+        flex: 1 !important;
+        border-radius: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        margin: 0 !important;
+    }
+
+    /* 3. ИСПРАВЛЕНИЕ ДЫРЫ: Отступ под меню нужен ТОЛЬКО там, где меню видимо! */
+    #sidebar-view, 
+    #calls-view, 
+    #settings-view {
+        padding-bottom: calc(75px + env(safe-area-inset-bottom)) !important; 
+    }
+
+    /* Внутри самого чата меню нет, поэтому убираем огромную дыру и оставляем только системный отступ (полоску iPhone) */
+    #chats-main-view {
+        padding-bottom: env(safe-area-inset-bottom) !important;
+    }
+
+    /* 4. Меню прибито гвоздями к низу экрана */
     .bottom-nav {
         position: fixed !important;
         bottom: 0 !important;
@@ -296,32 +321,17 @@ input:checked + .slider:before { transform: translateX(20px); }
         width: 100% !important;
         margin: 0 !important;
         z-index: 9999 !important;
-        /* Учитываем системную полоску снизу на iOS/Android */
         padding-bottom: max(env(safe-area-inset-bottom), 15px) !important; 
-        background: #1a103c !important; /* Чтобы контент не просвечивал под меню */
-        border-top: 1px solid rgba(255, 255, 255, 0.05) !important; /* Легкий разделитель */
-    }
-
-    /* 3. Отступаем снизу у всех экранов, чтобы контент не прятался под меню */
-    #sidebar-view, 
-    #chats-main-view, 
-    #calls-view, 
-    #settings-view {
-        height: 100% !important;
-        box-sizing: border-box !important;
-        /* 75px - это примерная высота твоего меню. Сообщения не будут улетать под него */
-        padding-bottom: calc(75px + env(safe-area-inset-bottom)) !important; 
+        background: #1a103c !important; 
+        border-top: 1px solid rgba(255, 255, 255, 0.05) !important; 
         border-radius: 0 !important;
-        border-bottom: none !important;
-        border: none !important;
-        background: transparent !important;
     }
 
-    /* 4. Списки чатов должны скроллиться нормально */
+    /* 5. Скролл для списков */
     #chats-list, 
     .chats-list-container {
         flex: 1 !important;
         overflow-y: auto !important;
         height: 100% !important;
     }
-} 
+}
