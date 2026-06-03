@@ -274,39 +274,35 @@ input:checked + .slider:before { transform: translateX(20px); }
 @media (max-width: 960px) {
     .mobile-only { display: block; }
     
-    /* 1. Главный контейнер вытягиваем на абсолютный максимум экрана */
+    /* 1. Главный контейнер */
     .app-container {
         width: 100vw !important;
         height: 100dvh !important;
         max-height: 100dvh !important;
         margin: 0 !important;
-        border-radius: 0 !important; /* Убираем десктопные круглые углы самой карточки */
+        border-radius: 0 !important;
         border: none !important;
         display: flex !important;
         flex-direction: column !important;
         box-sizing: border-box !important;
-        
-        /* Правильные безопасные отступы под челку и полоску iOS/Android */
         padding-top: max(env(safe-area-inset-top), 47px) !important;
         padding-bottom: env(safe-area-inset-bottom) !important;
     }
 
-    /* 2. Заставляем ВСЕ экраны (чаты, звонки, настройки) растягиваться во всю высоту контейнера */
+    /* 2. ИСПРАВЛЕННЫЙ БЛОК: Убрали display !important, чтобы скрипт мог скрывать окна */
     #sidebar-view, 
     #chats-main-view, 
     #calls-view, 
     #settings-view {
         width: 100% !important;
         height: 100% !important;
-        flex: 1 !important; /* Выталкивает контент на всю доступную высоту */
-        display: flex !important;
-        flex-direction: column !important;
+        flex: 1 !important; 
         border-radius: 0 !important;
         border: none !important;
-        background: transparent !important; /* Убираем двойные наслоения фонов */
+        background: transparent !important;
     }
 
-    /* 3. Список чатов теперь занимает ВСЁ свободное пространство от поиска до нижней панели */
+    /* 3. Список чатов */
     #chats-list, 
     .chats-list-container {
         flex: 1 !important;
@@ -314,10 +310,10 @@ input:checked + .slider:before { transform: translateX(20px); }
         height: auto !important;
     }
 
-    /* 4. Нижнюю панель навигации намертво приклеиваем к самому низу */
+    /* 4. Нижняя панель */
     .bottom-nav {
         width: 100% !important;
-        margin-top: auto !important; /* Жесткий выталкиватель вниз */
+        margin-top: auto !important;
         border-radius: 0 !important;
         border-left: none !important;
         border-right: none !important;
