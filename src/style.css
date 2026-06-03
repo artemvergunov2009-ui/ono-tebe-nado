@@ -273,22 +273,55 @@ input:checked + .slider:before { transform: translateX(20px); }
 
 @media (max-width: 960px) {
     .mobile-only { display: block; }
-    .app-container { 
-        grid-template-columns: 1fr; 
-        grid-template-rows: 1fr auto; 
-        width: 100vw; 
-        height: 100dvh; 
-        border-radius: 0; 
-        border: none; 
-        gap: 0; /* Убираем зазоры между окнами на мобильных */
+    
+    /* 1. Главный контейнер вытягиваем на абсолютный максимум экрана */
+    .app-container {
+        width: 100vw !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        margin: 0 !important;
+        border-radius: 0 !important; /* Убираем десктопные круглые углы самой карточки */
+        border: none !important;
+        display: flex !important;
+        flex-direction: column !important;
+        box-sizing: border-box !important;
+        
+        /* Правильные безопасные отступы под челку и полоску iOS/Android */
+        padding-top: max(env(safe-area-inset-top), 47px) !important;
+        padding-bottom: env(safe-area-inset-bottom) !important;
     }
-    .sidebar { grid-column: 1; grid-row: 1; border-radius: 0; border: none; border-right: none; }
-    .chat-area { grid-column: 1; grid-row: 1; border-radius: 0; border: none; }
-    .bottom-nav { 
-        grid-column: 1; 
-        grid-row: 2; 
-        border-radius: 0; 
-        border: none;
+
+    /* 2. Заставляем ВСЕ экраны (чаты, звонки, настройки) растягиваться во всю высоту контейнера */
+    #sidebar-view, 
+    #chats-main-view, 
+    #calls-view, 
+    #settings-view {
+        width: 100% !important;
+        height: 100% !important;
+        flex: 1 !important; /* Выталкивает контент на всю доступную высоту */
+        display: flex !important;
+        flex-direction: column !important;
+        border-radius: 0 !important;
+        border: none !important;
+        background: transparent !important; /* Убираем двойные наслоения фонов */
+    }
+
+    /* 3. Список чатов теперь занимает ВСЁ свободное пространство от поиска до нижней панели */
+    #chats-list, 
+    .chats-list-container {
+        flex: 1 !important;
+        overflow-y: auto !important;
+        height: auto !important;
+    }
+
+    /* 4. Нижнюю панель навигации намертво приклеиваем к самому низу */
+    .bottom-nav {
+        width: 100% !important;
+        margin-top: auto !important; /* Жесткий выталкиватель вниз */
+        border-radius: 0 !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-bottom: none !important;
         border-top: 1px solid var(--glass-border);
         background: rgba(15, 12, 41, 0.8); /* Делаем подложку темной, чтобы контент не накладывался */
         padding: 12px 18px; /* Немного уменьшаем высоту для мобилок */
