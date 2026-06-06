@@ -13,6 +13,15 @@ if (!document.getElementById('fa-link')) {
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 
+// Регистрация Service Worker для системных PWA-уведомлений (iOS/Android)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(err => {
+      console.log('SW registration failed: ', err);
+    });
+  });
+}
+
 let currentSession: any = null;
 let isInitialized = false;
 
