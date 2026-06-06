@@ -610,6 +610,18 @@ export function handleIncomingMessage(newMsg: any) {
   if (processedNotifications.has(newMsg.id)) return;
   processedNotifications.add(newMsg.id);
 
+  const notifySys = (title: string, body: string) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      if (document.visibilityState === 'hidden' || newMsg.chat_id !== currentChatId) {
+         navigator.serviceWorker?.ready.then(reg => {
+            reg.showNotification(title, { body, vibrate: [200,100,200] } as any);
+         }).catch(() => {
+            new Notification(title, { body });
+         });
+      }
+    }
+  };
+
   if (newMsg.chat_id !== currentChatId && newMsg.sender_id !== myUserId) {
       const states = getLocalObj(`chatStates_${myUserId!}`);
       if (!states[newMsg.chat_id]) states[newMsg.chat_id] = { unread: 0 };
@@ -619,10 +631,20 @@ export function handleIncomingMessage(newMsg: any) {
       if (localStorage.getItem('notifications_enabled') === 'true') {
          const audio = new Audio('https://actions.google.com/sounds/v1/communications/pop_up_alert.ogg');
          audio.play().catch(() => {});
+         
+         let text = newMsg.text;
+         try { text = JSON.parse(newMsg.text).text || 'Вложение'; } catch(e) {}
+         notifySys(newMsg.sender_name || 'Новое сообщение', text);
       }
   } else if (newMsg.chat_id === currentChatId && newMsg.sender_id !== myUserId) {
       appendMessageHTML(newMsg, false);
       updateChatHeaderStatus();
+      
+      if (localStorage.getItem('notifications_enabled') === 'true') {
+         let text = newMsg.text;
+         try { text = JSON.parse(newMsg.text).text || 'Вложение'; } catch(e) {}
+         notifySys(newMsg.sender_name || 'Новое сообщение', text);
+      }
   }
   
   loadChats(false, false, newMsg);
@@ -1049,7 +1071,13 @@ export async function setupChat(session: any) {
   const notifToggle = document.getElementById('toggle-notifications') as HTMLInputElement;
   notifToggle.checked = localStorage.getItem('notifications_enabled') === 'true';
   notifToggle.addEventListener('change', (e) => {
-    localStorage.setItem('notifications_enabled', (e.target as HTMLInputElement).checked.toString());
+    const isChecked = (e.target as HTMLInputElement).checked;
+    localStorage.setItem('notifications_enabled', isChecked.toString());
+    if (isChecked && 'Notification' in window) {
+      if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission(); // Запрашиваем доступ при включении тумблера
+      }
+    }
   });
 
   const navChats = document.getElementById('nav-chats');
@@ -2085,6 +2113,14 @@ async function selectChat(chatId: string, chatTitle: string) {
          document.getElementById('local-video')!.style.display = 'none';
          document.getElementById('call-avatar')!.style.display = 'flex';
          callModal.classList.add('active');
+         
+         if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState === 'hidden') {
+             const title = 'Входящий звонок';
+             const body = `Вам звонит ${payload.payload.caller}`;
+             navigator.serviceWorker?.ready.then(reg => {
+                 reg.showNotification(title, { body, vibrate: [500, 200, 500, 200, 500] } as any);
+             }).catch(() => new Notification(title, { body }));
+         }
        }
     })
     .on('broadcast', { event: 'webrtc-answer' }, async (payload: any) => {
