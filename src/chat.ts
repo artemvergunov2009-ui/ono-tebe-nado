@@ -2082,13 +2082,13 @@ export async function loadCalls() {
   });
 }
 
-// Жёстко прячем экран чата при запуске на мобилках
+// Жёстко прячем окно диалога при запуске на телефонах
 window.addEventListener('DOMContentLoaded', () => {
   if (window.innerWidth <= 960) {
-    const mainView = document.getElementById('chats-main-view');
-    // Если ни один чат не выбран, сразу вырубаем этот блок
-    if (mainView && !currentChatId) {
-      mainView.style.display = 'none';
+    const chatArea = document.querySelector('.chat-area') as HTMLElement;
+    // Если чат не выбран, скрываем его, чтобы остался только список чатов (sidebar)
+    if (chatArea && !currentChatId) {
+      chatArea.style.display = 'none';
     }
   }
 });
