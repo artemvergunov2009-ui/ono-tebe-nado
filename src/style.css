@@ -274,7 +274,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 @media (max-width: 960px) {
     .mobile-only { display: block; }
     
-    /* 1. Главный контейнер строго на весь экран */
+    /* 1. Контейнер на весь экран, НОЛЬ отступов снизу */
     .app-container {
         width: 100vw !important;
         height: 100dvh !important;
@@ -285,10 +285,10 @@ input:checked + .slider:before { transform: translateX(20px); }
         flex-direction: column !important;
         box-sizing: border-box !important;
         padding-top: max(env(safe-area-inset-top), 47px) !important;
-        padding-bottom: 0 !important;
+        padding-bottom: 0 !important; /* УБИЛИ ПОДБОРОДОК */
     }
 
-    /* 2. Экраны занимают 100% высоты */
+    /* 2. Экраны на 100% высоты, НОЛЬ отступов снизу */
     #sidebar-view, 
     #chats-main-view, 
     #calls-view, 
@@ -299,21 +299,17 @@ input:checked + .slider:before { transform: translateX(20px); }
         border: none !important;
         background: transparent !important;
         margin: 0 !important;
+        padding-bottom: 0 !important; /* УБИЛИ ПОДБОРОДОК */
     }
 
-    /* 3. ИСПРАВЛЕНИЕ ДЫРЫ: Отступ под меню нужен ТОЛЬКО там, где меню видимо! */
+    /* 3. Отступ только под контентом списков, чтобы они не прятались за нижним меню */
     #sidebar-view, 
     #calls-view, 
     #settings-view {
-        padding-bottom: calc(75px + env(safe-area-inset-bottom)) !important; 
+        padding-bottom: calc(65px + env(safe-area-inset-bottom)) !important; 
     }
 
-    /* Внутри самого чата меню нет, поэтому убираем огромную дыру и оставляем только системный отступ (полоску iPhone) */
-    #chats-main-view {
-        padding-bottom: env(safe-area-inset-bottom) !important;
-    }
-
-    /* 4. Меню прибито гвоздями к низу экрана */
+    /* 4. Нижнее меню: жестко внизу, заливка цветом до конца экрана */
     .bottom-nav {
         position: fixed !important;
         bottom: 0 !important;
@@ -321,13 +317,26 @@ input:checked + .slider:before { transform: translateX(20px); }
         width: 100% !important;
         margin: 0 !important;
         z-index: 9999 !important;
-        padding-bottom: max(env(safe-area-inset-bottom), 15px) !important; 
         background: #1a103c !important; 
         border-top: 1px solid rgba(255, 255, 255, 0.05) !important; 
         border-radius: 0 !important;
+        padding-top: 12px !important;
+        /* Системная полоска теперь ВНУТРИ меню, а не под ним */
+        padding-bottom: max(env(safe-area-inset-bottom), 12px) !important; 
     }
 
-    /* 5. Скролл для списков */
+    /* 5. Поле ввода в чате: жестко внизу, заливка цветом до конца экрана */
+    .input-area {
+        /* Системная полоска теперь ВНУТРИ поля ввода, как в Telegram */
+        padding-bottom: max(env(safe-area-inset-bottom), 20px) !important; 
+    }
+
+    /* 6. Убираем текст пустого чата для мобилок */
+    #no-chat-selected {
+        display: none !important;
+    }
+
+    /* 7. Скролл для списков */
     #chats-list, 
     .chats-list-container {
         flex: 1 !important;
