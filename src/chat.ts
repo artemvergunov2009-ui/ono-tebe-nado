@@ -10,7 +10,7 @@ let myChatIds: string[] = [];
 let currentChatMembersMap: Record<string, any> = {};
 
 let currentRoomChannel: any = null;
-let currentChatIsGroup: boolean = false; // Флаг для определения типа текущего чата
+let currentChatIsGroup: boolean = false;
 let pc: RTCPeerConnection | null = null;
 let localStream: MediaStream | null = null;
 let remoteStream: MediaStream | null = null;
@@ -66,8 +66,8 @@ export function renderChat(container: HTMLDivElement) {
           display: inline-flex;
           align-items: center;
         }
-        .msg-ticks .read { color: #34d399; } /* Зеленые галочки (прочитано) */
-        .msg-ticks .delivered { color: var(--text-muted); } /* Серая галочка (отправлено) */
+        .msg-ticks .read { color: #34d399; } 
+        .msg-ticks .delivered { color: var(--text-muted); } 
 
         /* Telegram-анимация контекстного меню */
         .context-backdrop {
@@ -473,13 +473,11 @@ export function renderChat(container: HTMLDivElement) {
   `;
 }
 
-// Вспомогательные функции для работы с LocalStorage
 const getLocalList = (k: string): string[] => JSON.parse(localStorage.getItem(k) || '[]');
 const setLocalList = (k: string, v: string[]) => localStorage.setItem(k, JSON.stringify(v));
 const getLocalObj = (k: string): Record<string, any> => JSON.parse(localStorage.getItem(k) || '{}');
 const setLocalObj = (k: string, v: Record<string, any>) => localStorage.setItem(k, JSON.stringify(v));
 
-// Переменные состояния для работы с контекстным меню, выделением и хранилищем
 let pinnedChats: string[] = [];
 let archivedChats: string[] = [];
 let deletedChats: string[] = [];
@@ -507,7 +505,6 @@ function updateCallStopwatch() {
   if (statusEl) statusEl.innerText = `${m}:${s}`;
 }
 
-// --- ОБРАБОТКА ВХОДЯЩИХ СООБЩЕНИЙ В РЕАЛЬНОМ ВРЕМЕНИ ---
 export function handleIncomingMessage(newMsg: any) {
   if (processedNotifications.has(newMsg.id)) return;
   processedNotifications.add(newMsg.id);
@@ -530,7 +527,6 @@ export function handleIncomingMessage(newMsg: any) {
   loadChats(false, false, newMsg);
 }
 
-// --- ЗВОНКИ (WebRTC) ---
 const rtcConfig = { iceServers: [{ urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }] };
 
 export function cleanupCall() {
@@ -616,7 +612,7 @@ export function bindContextMenu(el: HTMLElement, data: any, type: 'chat' | 'mess
   let pressTimer: number;
   
   const showMenu = (e: MouseEvent | TouchEvent, x: number, y: number) => {
-    if (e.cancelable) e.preventDefault(); // Защита от вызова системного меню на телефоне
+    if (e.cancelable) e.preventDefault(); 
     if (multiSelectMode && type === 'message') return; 
     
     const ctxMenu = document.getElementById('context-menu')!;
@@ -646,26 +642,23 @@ export function bindContextMenu(el: HTMLElement, data: any, type: 'chat' | 'mess
       ctxMenu.innerHTML += `<div class="context-menu-item" id="ctx-msg-pin">${isPinned ? 'Открепить' : 'Закрепить'}</div>`;
       ctxMenu.innerHTML += `<div class="context-menu-item" id="ctx-msg-select">Выбрать несколько</div>`;
       
-      // TELEGRAM ЭФФЕКТ ТОЛЬКО ДЛЯ СООБЩЕНИЙ
       bubble.classList.add('context-active');
       backdrop?.classList.add('active');
     }
 
-    // РЕШЕНИЕ БАГА: Правильный показ с очисткой старых стилей
     ctxMenu.style.display = 'block'; 
-    ctxMenu.style.visibility = 'hidden'; // Прячем на микросекунду для просчета высоты
+    ctxMenu.style.visibility = 'hidden';
     const menuHeight = ctxMenu.offsetHeight || 220; 
     let calculatedTop = y - menuHeight - 15; 
     if (calculatedTop < 20) calculatedTop = y + 20; 
 
     ctxMenu.style.left = Math.max(10, Math.min(x - 100, window.innerWidth - 210)) + 'px';
     ctxMenu.style.top = calculatedTop + 'px';
-    ctxMenu.style.visibility = 'visible'; // Возвращаем видимость
+    ctxMenu.style.visibility = 'visible';
     ctxMenu.classList.add('active');
 
-    // ЖЕСТКОЕ ЗАКРЫТИЕ: Убиваем окно на 100%
     const forceClose = () => {
-      ctxMenu.style.display = 'none'; // ПРИНУДИТЕЛЬНО УБИРАЕМ
+      ctxMenu.style.display = 'none';
       ctxMenu.classList.remove('active');
       backdrop?.classList.remove('active');
       bubble.classList.remove('context-active');
@@ -678,13 +671,11 @@ export function bindContextMenu(el: HTMLElement, data: any, type: 'chat' | 'mess
       forceClose();
     };
 
-    // Даем браузеру паузу, чтобы он не закрыл меню сразу при открытии
     setTimeout(() => {
       document.addEventListener('click', closeMenu);
       document.addEventListener('touchstart', closeMenu);
     }, 50);
 
-    // --- ОБРАБОТЧИКИ НАЖАТИЙ (с моментальным закрытием forceClose) ---
     document.getElementById('ctx-chat-pin')?.addEventListener('click', (e) => {
       e.stopPropagation(); forceClose();
       if (pinnedChats.includes(data.id)) pinnedChats = pinnedChats.filter(id => id !== data.id);
@@ -699,7 +690,6 @@ export function bindContextMenu(el: HTMLElement, data: any, type: 'chat' | 'mess
       setLocalList(`archivedChats_${myUserId!}`, archivedChats); loadChats(); 
     });
     
-    // Вызов модальных окон для удаления
     document.getElementById('ctx-chat-delme')?.addEventListener('click', (e) => {
       e.stopPropagation(); forceClose();
       chatToDelete = { id: data.id, type: 'me' };
@@ -817,7 +807,6 @@ export async function setupChat(session: any) {
     editSaveBtn.innerText = 'Загрузка...';
     editSaveBtn.disabled = true;
 
-    // Сначала проверим, загрузил ли человек файл
     const fileInput = document.getElementById('edit-avatar-file') as HTMLInputElement;
     let finalAvatarUrl = (document.getElementById('edit-avatar-url') as HTMLInputElement).value.trim();
 
@@ -826,16 +815,15 @@ export async function setupChat(session: any) {
        const fileExt = file.name.split('.').pop();
        const filePath = `${myUserId}-${Math.random()}.${fileExt}`;
        
-       // Грузим в Supabase Storage (в ведро avatars)
        const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file);
        if (!uploadError) {
           const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-          finalAvatarUrl = data.publicUrl; // Получаем публичную ссылку на картинку!
+          finalAvatarUrl = data.publicUrl; 
        }
     }
 
     profileData.avatarUrl = finalAvatarUrl;
-    profileData.avatarBg = '#8a2be2'; // сбрасываем цвет
+    profileData.avatarBg = '#8a2be2'; 
     const newDesc = (document.getElementById('edit-description') as HTMLInputElement).value.trim();
     profileData.description = newDesc || 'Не указано';
 
@@ -928,12 +916,16 @@ export async function setupChat(session: any) {
     navCalls?.classList.remove('active');
     navSettings?.classList.remove('active');
     
+    // Сбрасываем inline-стили для десктопа
     viewChatsMain!.style.display = 'none';
     viewCalls!.style.display = 'none';
     viewSettings!.style.display = 'none';
+    
+    // Сбрасываем мобильные классы
     viewChatsMain!.classList.remove('mobile-active');
     viewCalls!.classList.remove('mobile-active');
     viewSettings!.classList.remove('mobile-active');
+    sidebarView!.classList.remove('mobile-hidden');
     
     activeNav?.classList.add('active');
     
@@ -942,24 +934,24 @@ export async function setupChat(session: any) {
     if (window.innerWidth <= 960) {
       if (bottomNav) bottomNav.style.display = 'flex'; 
       if (activeView === viewChatsMain && !currentChatId) {
-        sidebarView!.style.display = 'flex';
+        // Показываем только список чатов
         sidebarView!.classList.remove('mobile-hidden');
-        viewChatsMain!.style.display = 'none'; 
         currentChatId = null; 
         document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
         document.querySelector('.app-container')?.classList.remove('chat-active');
       } else {
-        sidebarView!.style.display = 'none';
+        // Показываем активное окно поверх списка чатов
         sidebarView!.classList.add('mobile-hidden');
-        activeView!.style.display = 'flex';
         activeView!.classList.add('mobile-active');
         if (activeView === viewChatsMain) {
           document.querySelector('.app-container')?.classList.add('chat-active');
+          if (bottomNav) bottomNav.style.display = 'none'; // Прячем меню внутри чата
         } else {
           document.querySelector('.app-container')?.classList.remove('chat-active');
         }
       }
     } else {
+      // Логика для ПК
       if (bottomNav) bottomNav.style.display = 'flex';
       sidebarView!.style.display = 'flex';
       activeView!.style.display = 'flex';
@@ -974,12 +966,15 @@ export async function setupChat(session: any) {
   });
   navSettings?.addEventListener('click', () => switchTab(navSettings, viewSettings));
 
+  // Обработчик мобильной кнопки "Назад" из чата
   document.getElementById('mobile-back-btn')?.addEventListener('click', () => {
       currentChatId = null;
-      document.getElementById('chats-main-view')!.style.display = 'none';
-      document.getElementById('sidebar-view')!.style.display = 'flex';
+      document.getElementById('chats-main-view')!.classList.remove('mobile-active');
+      document.getElementById('sidebar-view')!.classList.remove('mobile-hidden');
+      
       const bottomNav = document.querySelector('.bottom-nav') as HTMLElement;
       if (bottomNav) bottomNav.style.display = 'flex'; 
+      
       document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
       document.querySelector('.app-container')?.classList.remove('chat-active');
   });
@@ -997,7 +992,6 @@ export async function setupChat(session: any) {
   const messageTextInput = document.getElementById('message-text') as HTMLInputElement;
   const addUserBtn = document.getElementById('add-user-btn');
 
-  // --- ЛОГИКА ОКНА УДАЛЕНИЯ ЗВОНКОВ ---
   document.getElementById('clear-calls-btn')?.addEventListener('click', () => {
     document.getElementById('confirm-clear-calls-modal')?.classList.add('active');
   });
@@ -1013,7 +1007,6 @@ export async function setupChat(session: any) {
     loadCalls();
   });
 
-  // --- ЛОГИКА ОКНА УДАЛЕНИЯ ЧАТА ---
   document.getElementById('cancel-delete-chat')?.addEventListener('click', () => {
     document.getElementById('confirm-delete-chat-modal')?.classList.remove('active');
     chatToDelete = null;
@@ -1030,8 +1023,15 @@ export async function setupChat(session: any) {
     loadChats();
     if (currentChatId === chatToDelete.id) { 
       currentChatId = null; 
+      // Вместо inline скрываем через класс
       document.getElementById('chat-header-container')!.style.display = 'none'; 
       document.getElementById('no-chat-selected')!.style.display = 'flex'; 
+      if (window.innerWidth <= 960) {
+          document.getElementById('chats-main-view')?.classList.remove('mobile-active');
+          document.getElementById('sidebar-view')?.classList.remove('mobile-hidden');
+          const bottomNav = document.querySelector('.bottom-nav') as HTMLElement;
+          if (bottomNav) bottomNav.style.display = 'flex'; 
+      }
     }
     document.getElementById('confirm-delete-chat-modal')?.classList.remove('active');
     chatToDelete = null;
@@ -1169,7 +1169,6 @@ export async function setupChat(session: any) {
     alert('Функция создания канала в разработке');
   });
 
-  // --- МОДАЛКА СОЗДАНИЯ ГРУППОВОГО ЧАТА ---
   modalCancel?.addEventListener('click', () => { modal?.classList.remove('active'); modalInput.value = ''; });
 
   const handleCreateChat = async () => {
@@ -1225,26 +1224,21 @@ export async function setupChat(session: any) {
       editingMessageId = null; 
       messageTextInput.value = ''; 
       
-      // 1. Мгновенно меняем текст в самом чате
       const msgBubble = document.getElementById(`msg-${editedId}`)?.querySelector('.message-bubble');
       if (msgBubble) {
          const textSpan = msgBubble.querySelector('span:not(.msg-time)');
          if (textSpan) textSpan.innerHTML = text; 
       }
       
-      // --- НОВОЕ: ОБНОВЛЯЕМ ЗАКРЕПЛЕННОЕ СООБЩЕНИЕ ---
       if (currentChatId && pinnedMessages[currentChatId]?.id === editedId) {
          pinnedMessages[currentChatId].text = text;
-         // На всякий случай обновляем и распарсенный текст
          try { pinnedMessages[currentChatId].parsedText = JSON.parse(text); } 
          catch(e) { pinnedMessages[currentChatId].parsedText = text; }
          
          setLocalObj(`pinnedMessages_${myUserId!}`, pinnedMessages);
-         renderPinnedBanner(); // Сразу перерисовываем шапку с новым текстом
+         renderPinnedBanner(); 
       }
-      // -----------------------------------------------
       
-      // 2. Отправляем в базу
       await supabase.from('messages').update({ text }).eq('id', editedId);
       return;
     }
@@ -1271,7 +1265,7 @@ export async function setupChat(session: any) {
       if (chatError) return console.error('Ошибка создания чата:', chatError);
       
       currentChatId = chat.id;
-      currentChatIsGroup = false; // Указываем, что это личный диалог
+      currentChatIsGroup = false; 
       await supabase.from('chat_members').insert([
         { chat_id: currentChatId!, user_id: myUserId! },
         { chat_id: currentChatId!, user_id: pendingDirectChatUserId! }
@@ -1316,39 +1310,34 @@ export async function setupChat(session: any) {
     if (isNewChat) loadChats();
   }
 
-  // --- ЛОГИКА ОТПРАВКИ ФАЙЛОВ В ЧАТ ---
   const attachBtn = document.getElementById('attach-btn');
   const chatFileInput = document.getElementById('chat-file-input') as HTMLInputElement;
 
-  attachBtn?.addEventListener('click', () => chatFileInput.click()); // Открываем проводник по клику на скрепку
+  attachBtn?.addEventListener('click', () => chatFileInput.click()); 
 
   chatFileInput?.addEventListener('change', async (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
     if (!file || !currentChatId) return;
 
-    // Блокируем инпут, пока грузится файл
     messageTextInput.placeholder = 'Отправка файла...';
     messageTextInput.disabled = true;
 
     const fileExt = file.name.split('.').pop();
     const filePath = `${currentChatId}/${Date.now()}_${Math.random()}.${fileExt}`;
     
-    // Грузим в хранилище Supabase
     const { error: uploadError } = await supabase.storage.from('chat_files').upload(filePath, file);
     
     messageTextInput.placeholder = 'Написать сообщение...';
     messageTextInput.disabled = false;
-    chatFileInput.value = ''; // Сбрасываем инпут
+    chatFileInput.value = ''; 
 
     if (uploadError) {
        alert('Ошибка загрузки файла!');
        return;
     }
 
-    // Получаем ссылку на файл
     const { data } = supabase.storage.from('chat_files').getPublicUrl(filePath);
     
-    // Формируем JSON-сообщение о файле
     const payload = JSON.stringify({
        type: 'file',
        url: data.publicUrl,
@@ -1356,7 +1345,6 @@ export async function setupChat(session: any) {
        isImage: file.type.startsWith('image/')
     });
 
-    // Отправляем как обычное сообщение!
     messageTextInput.value = payload;
     sendMsg(); 
   });
@@ -1381,7 +1369,6 @@ export async function setupChat(session: any) {
            }
         }
       } else if (payload.eventType === 'UPDATE' || payload.eventType === 'DELETE') {
-         // --- НОВОЕ: ПРОВЕРЯЕМ, НЕ ИЗМЕНИЛИ ЛИ ЗАКРЕПЛЕННОЕ СООБЩЕНИЕ ---
          if (payload.eventType === 'UPDATE') {
             const updatedMsg = payload.new;
             if (pinnedMessages[updatedMsg.chat_id] && pinnedMessages[updatedMsg.chat_id].id === updatedMsg.id) {
@@ -1394,9 +1381,8 @@ export async function setupChat(session: any) {
                setLocalObj(`pinnedMessages_${myUserId!}`, pinnedMessages);
             }
          }
-         // ---------------------------------------------------------------
          
-         if (currentChatId) loadMessages(currentChatId!); // Перезагружаем чат
+         if (currentChatId) loadMessages(currentChatId!); 
          loadChats();
       }
     })
@@ -1541,8 +1527,8 @@ async function selectUserForChat(targetUserId: string, targetUsername: string) {
   document.querySelector('.app-container')?.classList.add('chat-active');
 
   if (window.innerWidth <= 960) {
-    document.querySelector('.sidebar')?.classList.add('mobile-hidden');
-    document.querySelector('.chat-area')?.classList.add('mobile-active');
+    document.getElementById('sidebar-view')?.classList.add('mobile-hidden');
+    document.getElementById('chats-main-view')?.classList.add('mobile-active');
     const bottomNav = document.querySelector('.bottom-nav') as HTMLElement;
     if (bottomNav) bottomNav.style.display = 'none'; 
   }
@@ -1598,7 +1584,6 @@ async function loadChats(inArchive: boolean = false, forForwarding: boolean = fa
 
   chatsList.innerHTML = '';
   
-  // ИСПОЛЬЗУЕМ FOR...OF ДЛЯ ПРЯМЫХ ЗАПРОСОВ К КАЖДОМУ ПРОФИЛЮ
   for (const m of visibleChats) {
     const chatObj = Array.isArray(m.chats) ? m.chats[0] : m.chats;
     if (!chatObj) continue;
@@ -1608,13 +1593,11 @@ async function loadChats(inArchive: boolean = false, forForwarding: boolean = fa
     let avatarContent = title.charAt(0).toUpperCase();
 
     if (chatObj.is_group === false) {
-      // Узнаем ID второго участника
       const { data: otherMembers } = await supabase.from('chat_members').select('user_id').eq('chat_id', chatObj.id).neq('user_id', myUserId!);
       
       if (otherMembers && otherMembers.length > 0) {
           const otherUserId = otherMembers[0].user_id;
           
-          // ИСПОЛЬЗУЕМ '*' ЧТОБЫ ИЗБЕЖАТЬ ОШИБКИ ОТСУТСТВУЮЩИХ КОЛОНОК В БД
           const { data: profile } = await supabase.from('profiles').select('*').eq('id', otherUserId).single();
           
           if (profile) {
@@ -1629,7 +1612,6 @@ async function loadChats(inArchive: boolean = false, forForwarding: boolean = fa
                  avatarContent = title.charAt(0).toUpperCase();
               }
           } else {
-              // Если вдруг всё же не найдет, берем оригинальное название чата, но проверяем чтобы это был не ты
               title = chatObj.title !== myUsername ? chatObj.title : 'Собеседник';
               avatarContent = title.charAt(0).toUpperCase();
           }
@@ -1676,10 +1658,9 @@ async function loadChats(inArchive: boolean = false, forForwarding: boolean = fa
 async function selectChat(chatId: string, chatTitle: string) {
   currentChatId = chatId;
   
-  // --- НОВОЕ: Показываем чат на мобилках при выборе ---
   if (window.innerWidth <= 960) {
-    document.querySelector('.sidebar')?.classList.add('mobile-hidden');
-    document.querySelector('.chat-area')?.classList.add('mobile-active');
+    document.getElementById('sidebar-view')?.classList.add('mobile-hidden');
+    document.getElementById('chats-main-view')?.classList.add('mobile-active');
   }
   
   const states = getLocalObj(`chatStates_${myUserId!}`);
@@ -1703,7 +1684,6 @@ async function selectChat(chatId: string, chatTitle: string) {
   if (membersRaw) {
     const otherMemberId = membersRaw.find(m => m.user_id !== myUserId!)?.user_id;
     if (otherMemberId) {
-       // ИСПОЛЬЗУЕМ '*' ЧТОБЫ ИЗБЕЖАТЬ ОШИБКИ
        const { data: profile } = await supabase.from('profiles').select('*').eq('id', otherMemberId).single();
        if (profile) otherUser = profile;
     }
@@ -1726,7 +1706,6 @@ async function selectChat(chatId: string, chatTitle: string) {
            avatarEl.innerText = (otherUser.username || 'U').charAt(0).toUpperCase();
         }
     } else {
-        // Запасной план: если профиль всё равно не прогрузился
         titleEl.innerText = chatTitle !== myUsername ? chatTitle : "Собеседник";
         currentOtherUserId = null;
         avatarEl.style.background = 'var(--primary-gradient)';
@@ -1794,12 +1773,10 @@ async function selectChat(chatId: string, chatTitle: string) {
     .on('broadcast', { event: 'new_message' }, (payload: any) => {
        handleIncomingMessage(payload.payload);
     })
-    // НОВЫЙ БЛОК: СЛУШАЕМ ПРОЧТЕНИЕ СООБЩЕНИЙ
     .on('broadcast', { event: 'messages_read' }, (payload: any) => {
        const readIds = payload.payload.ids;
        readIds.forEach((id: string) => {
           const tickEl = document.getElementById(`ticks-${id}`);
-          // Меняем серую галочку на двойную зеленую в реальном времени!
           if (tickEl) tickEl.innerHTML = '<i class="fas fa-check-double read"></i>'; 
        });
     })
@@ -1812,8 +1789,8 @@ async function selectChat(chatId: string, chatTitle: string) {
   document.querySelector('.app-container')?.classList.add('chat-active');
 
   if (window.innerWidth <= 960) {
-    document.querySelector('.sidebar')?.classList.add('mobile-hidden');
-    document.querySelector('.chat-area')?.classList.add('mobile-active');
+    document.getElementById('sidebar-view')?.classList.add('mobile-hidden');
+    document.getElementById('chats-main-view')?.classList.add('mobile-active');
     const bottomNav = document.querySelector('.bottom-nav') as HTMLElement;
     if (bottomNav) bottomNav.style.display = 'none'; 
   }
@@ -1856,21 +1833,19 @@ async function loadMessages(chatId: string) {
   renderPinnedBanner();
   messagesList.innerHTML = '';
   
-  const unreadIds: string[] = []; // Собираем ID непрочитанных НАМ чужих сообщений
+  const unreadIds: string[] = []; 
 
   messages.forEach((msg: any) => {
     const isMine = msg.sender_id === myUserId!;
-    if (!isMine && !msg.is_read) unreadIds.push(msg.id); // Если чужое и не прочитано - в массив
+    if (!isMine && !msg.is_read) unreadIds.push(msg.id); 
 
     const profile = Array.isArray(msg.profiles) ? msg.profiles[0] : msg.profiles;
     msg.sender_name = profile?.username || 'Пользователь';
     appendMessageHTML(msg, isMine);
   });
 
-  // Отмечаем их как прочитанные в базе и отправляем сигнал собеседнику
   if (unreadIds.length > 0) {
      await supabase.from('messages').update({ is_read: true }).in('id', unreadIds);
-     // Рассылаем событие, чтобы у собеседника галочки мгновенно стали зелеными
      currentRoomChannel?.send({ type: 'broadcast', event: 'messages_read', payload: { ids: unreadIds } });
   }
 }
@@ -1960,7 +1935,6 @@ function appendMessageHTML(msg: any, isMine: boolean) {
         contentHtml = `<div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">Переслано от ${parsed.author}</div><span>${parsed.text}</span>`;
      } else if (parsed.type === 'file') {
         if (parsed.isImage) {
-           // ФОТОГРАФИИ БЕЗ ТЕКСТА И С УМЕНЬШЕННЫМИ РАМКАМИ
            contentHtml = `<img src="${parsed.url}" style="max-width: 100%; border-radius: 8px; cursor: pointer; display: block;" onclick="window.open('${parsed.url}', '_blank')">`;
         } else {
            contentHtml = `<a href="${parsed.url}" target="_blank" style="color: #3b82f6; text-decoration: none; display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;"><i class="fas fa-file-download" style="font-size: 20px;"></i> <span style="word-break: break-all;">${parsed.name}</span></a>`;
@@ -1972,7 +1946,6 @@ function appendMessageHTML(msg: any, isMine: boolean) {
      contentHtml = `<span>${msg.text}</span>`;
   }
 
-  // ЛОГИКА ГАЛОЧЕК
   const ticksHtml = isMine 
     ? `<span class="msg-ticks" id="ticks-${msg.id}">${msg.is_read ? '<i class="fas fa-check-double read"></i>' : '<i class="fas fa-check delivered"></i>'}</span>` 
     : '';
@@ -2026,12 +1999,9 @@ export async function loadCalls() {
      return;
   }
 
-  // --- НОВАЯ ЛОГИКА ФИЛЬТРАЦИИ (НЕВИДИМОСТЬ) ---
-  // Достаем время последней очистки (если мы еще не чистили, время будет 0)
   const clearedAtStr = localStorage.getItem(`clearedCallsAt_${myUserId!}`);
   const clearedTime = clearedAtStr ? new Date(clearedAtStr).getTime() : 0;
 
-  // Оставляем только свежие звонки
   const visibleCalls = callsData.filter((call: any) => {
      return new Date(call.started_at).getTime() > clearedTime;
   });
@@ -2040,18 +2010,15 @@ export async function loadCalls() {
      callsList.innerHTML = '<div style="text-align:center; color:var(--text-muted); margin-top:20px;">Нет истории звонков</div>';
      return;
   }
-  // ---------------------------------------------
 
   const profileIds = new Set<string>();
   visibleCalls.forEach((c: any) => { profileIds.add(c.caller_id); profileIds.add(c.receiver_id); });
   
-  // ИСПОЛЬЗУЕМ '*', КАК МЫ ЭТО СДЕЛАЛИ В ЧАТАХ
   const { data: profiles } = await supabase.from('profiles').select('*').in('id', Array.from(profileIds));
   const profilesMap: Record<string, any> = {};
   profiles?.forEach((p: any) => profilesMap[p.id] = p);
 
   callsList.innerHTML = '';
-  // Отрисовываем только видимые (visibleCalls), а не все (callsData)
   visibleCalls.forEach((call: any) => {
      const isOutgoing = call.caller_id === myUserId!;
      const otherUserId = isOutgoing ? call.receiver_id : call.caller_id;
