@@ -1538,6 +1538,13 @@ function updateChatHeaderStatus() {
 async function selectUserForChat(targetUserId: string, targetUsername: string) {
   document.getElementById('compose-sheet-overlay')?.classList.remove('active');
   
+  if (window.innerWidth <= 960) {
+    document.getElementById('sidebar-view')?.classList.add('mobile-hidden');
+    document.getElementById('chats-main-view')?.classList.add('mobile-active');
+    const bottomNav = document.querySelector('.bottom-nav') as HTMLElement;
+    if (bottomNav) bottomNav.style.display = 'none';
+  }
+
   if (!myUserId) return;
   
   const { data: myMembers } = await supabase.from('chat_members').select('chat_id, chats!inner(is_group)').eq('user_id', myUserId!).eq('chats.is_group', false);
@@ -1712,6 +1719,8 @@ async function selectChat(chatId: string, chatTitle: string) {
   if (window.innerWidth <= 960) {
     document.getElementById('sidebar-view')?.classList.add('mobile-hidden');
     document.getElementById('chats-main-view')?.classList.add('mobile-active');
+    const bottomNav = document.querySelector('.bottom-nav') as HTMLElement;
+    if (bottomNav) bottomNav.style.display = 'none'; // Убиваем меню мгновенно
   }
   
   const states = getLocalObj(`chatStates_${myUserId!}`);
