@@ -1,3 +1,11 @@
+self.addEventListener('install', (event) => {
+  self.skipWaiting(); // Активируем сразу при установке
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim()); // Сразу захватываем контроль над открытой страницей
+});
+
 self.addEventListener('push', function(event) {
   if (event.data) {
     const data = event.data.json();
