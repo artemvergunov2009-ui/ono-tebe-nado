@@ -1669,6 +1669,14 @@ async function loadChats(inArchive: boolean = false, forForwarding: boolean = fa
 async function selectChat(chatId: string, chatTitle: string) {
   currentChatId = chatId;
   
+  // --- НОВОЕ: Показываем чат на мобилках при выборе ---
+  if (window.innerWidth <= 960) {
+    const chatArea = document.querySelector('.chat-area') as HTMLElement;
+    if (chatArea) {
+      chatArea.style.display = 'flex'; // Возвращаем окно на экран
+    }
+  }
+  
   const states = getLocalObj(`chatStates_${myUserId!}`);
   if (states[chatId] && states[chatId].unread > 0) {
      states[chatId].unread = 0;
