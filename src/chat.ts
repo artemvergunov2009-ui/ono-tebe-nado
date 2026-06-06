@@ -469,6 +469,18 @@ export function renderChat(container: HTMLDivElement) {
         </div>
       </div>
 
+      <div id="confirm-delete-msg-modal" class="modal-overlay">
+        <div class="modal-content glass-panel" style="text-align: center;">
+          <h3 style="margin-bottom: 8px;">Удалить сообщение?</h3>
+          <p style="color: var(--text-muted); margin-bottom: 24px; font-size: 14px;">Это действие нельзя отменить.</p>
+          <div class="modal-actions" style="flex-direction: column; gap: 10px; margin-top: 0;">
+            <button id="btn-del-msg-me" class="btn-cancel" style="width: 100%; margin: 0; background: rgba(255,255,255,0.1); color: white;">Удалить у меня</button>
+            <button id="btn-del-msg-all" class="btn-confirm" style="width: 100%; margin: 0; background: #ef4444; color: white;">Удалить у всех</button>
+            <button id="btn-del-msg-cancel" class="btn-cancel" style="width: 100%; margin: 0; margin-top: 4px; background: transparent;">Отмена</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   `;
 }
@@ -481,8 +493,10 @@ const setLocalObj = (k: string, v: Record<string, any>) => localStorage.setItem(
 let pinnedChats: string[] = [];
 let archivedChats: string[] = [];
 let deletedChats: string[] = [];
+let deletedMessages: string[] = [];
 let pinnedMessages: Record<string, any> = {};
 let chatToDelete: { id: string, type: 'me' | 'all' } | null = null;
+let msgToDelete: { id: string, isMine: boolean } | null = null;
 
 let editingMessageId: string | null = null;
 let replyingToMessage: any = null;
@@ -641,6 +655,7 @@ export function bindContextMenu(el: HTMLElement, data: any, type: 'chat' | 'mess
       ctxMenu.innerHTML += `<div class="context-menu-item" id="ctx-msg-fwd">Переслать</div>`;
       ctxMenu.innerHTML += `<div class="context-menu-item" id="ctx-msg-pin">${isPinned ? 'Открепить' : 'Закрепить'}</div>`;
       ctxMenu.innerHTML += `<div class="context-menu-item" id="ctx-msg-select">Выбрать несколько</div>`;
+      ctxMenu.innerHTML += `<div class="context-menu-item danger" id="ctx-msg-delete">Удалить</div>`;
       
       bubble.classList.add('context-active');
       backdrop?.classList.add('active');
@@ -730,6 +745,15 @@ export function bindContextMenu(el: HTMLElement, data: any, type: 'chat' | 'mess
       document.getElementById('chat-header-container')?.classList.add('multi-select-mode');
       if (currentChatId) loadMessages(currentChatId!); 
     });
+
+    document.getElementById('ctx-msg-delete')?.addEventListener('click', (e) => {
+      e.stopPropagation(); forceClose();
+      const isMine = data.sender_id === myUserId;
+      msgToDelete = { id: data.id, isMine };
+      const btnDelAll = document.getElementById('btn-del-msg-all');
+      if (btnDelAll) btnDelAll.style.display = isMine ? 'block' : 'none'; // Удалить у всех только для своих
+      document.getElementById('confirm-delete-msg-modal')?.classList.add('active');
+    });
   };
 
   el.addEventListener('contextmenu', (e) => showMenu(e, e.clientX, e.clientY));
@@ -768,6 +792,7 @@ export async function setupChat(session: any) {
   pinnedChats = getLocalList(`pinnedChats_${myUserId!}`);
   archivedChats = getLocalList(`archivedChats_${myUserId!}`);
   deletedChats = getLocalList(`deletedChats_${myUserId!}`);
+  deletedMessages = getLocalList(`deletedMessages_${myUserId!}`);
   pinnedMessages = getLocalObj(`pinnedMessages_${myUserId!}`);
 
   const profileData = JSON.parse(localStorage.getItem(`profile_${myUserId!}`) || '{}');
@@ -1035,6 +1060,31 @@ export async function setupChat(session: any) {
     }
     document.getElementById('confirm-delete-chat-modal')?.classList.remove('active');
     chatToDelete = null;
+  });
+
+  document.getElementById('btn-del-msg-cancel')?.addEventListener('click', () => {
+    document.getElementById('confirm-delete-msg-modal')?.classList.remove('active');
+    msgToDelete = null;
+  });
+  
+  document.getElementById('btn-del-msg-me')?.addEventListener('click', () => {
+    if (!msgToDelete) return;
+    deletedMessages.push(msgToDelete.id);
+    setLocalList(`deletedMessages_${myUserId!}`, deletedMessages);
+    const msgEl = document.getElementById(`msg-${msgToDelete.id}`);
+    if (msgEl) msgEl.style.display = 'none';
+    document.getElementById('confirm-delete-msg-modal')?.classList.remove('active');
+    msgToDelete = null;
+  });
+  
+  document.getElementById('btn-del-msg-all')?.addEventListener('click', async () => {
+    if (!msgToDelete) return;
+    const msgId = msgToDelete.id;
+    document.getElementById('confirm-delete-msg-modal')?.classList.remove('active');
+    msgToDelete = null;
+    await supabase.from('messages').delete().eq('id', msgId);
+    const msgEl = document.getElementById(`msg-${msgId}`);
+    if (msgEl) msgEl.style.display = 'none';
   });
 
   await loadChats();
@@ -1544,10 +1594,11 @@ async function loadChats(inArchive: boolean = false, forForwarding: boolean = fa
   const chatIds = members.map((m: any) => m.chat_id);
   myChatIds = chatIds;
   
-  const { data: latestMessages } = await supabase.from('messages').select('chat_id, created_at, text').in('chat_id', chatIds).order('created_at', { ascending: false });
+  const { data: latestMessages } = await supabase.from('messages').select('id, chat_id, created_at, text').in('chat_id', chatIds).order('created_at', { ascending: false });
   const latestByChat: Record<string, any> = {};
   if (latestMessages) {
      latestMessages.forEach(msg => {
+         if (deletedMessages.includes(msg.id)) return; // Пропускаем удалённые локально сообщения
          if (!latestByChat[msg.chat_id]) latestByChat[msg.chat_id] = msg;
      });
   }
@@ -1836,6 +1887,7 @@ async function loadMessages(chatId: string) {
   const unreadIds: string[] = []; 
 
   messages.forEach((msg: any) => {
+    if (deletedMessages.includes(msg.id)) return;
     const isMine = msg.sender_id === myUserId!;
     if (!isMine && !msg.is_read) unreadIds.push(msg.id); 
 
