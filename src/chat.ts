@@ -1215,10 +1215,6 @@ export async function setupChat(session: any) {
     modalInput.focus();
   });
 
-  btnNewChannel?.addEventListener('click', () => {
-    alert('Функция создания канала в разработке');
-  });
-
   modalCancel?.addEventListener('click', () => { modal?.classList.remove('active'); modalInput.value = ''; });
 
   const handleCreateChat = async () => {
