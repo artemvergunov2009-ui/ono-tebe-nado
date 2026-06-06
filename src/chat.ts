@@ -931,6 +931,9 @@ export async function setupChat(session: any) {
     viewChatsMain!.style.display = 'none';
     viewCalls!.style.display = 'none';
     viewSettings!.style.display = 'none';
+    viewChatsMain!.classList.remove('mobile-active');
+    viewCalls!.classList.remove('mobile-active');
+    viewSettings!.classList.remove('mobile-active');
     
     activeNav?.classList.add('active');
     
@@ -940,13 +943,16 @@ export async function setupChat(session: any) {
       if (bottomNav) bottomNav.style.display = 'flex'; 
       if (activeView === viewChatsMain && !currentChatId) {
         sidebarView!.style.display = 'flex';
+        sidebarView!.classList.remove('mobile-hidden');
         viewChatsMain!.style.display = 'none'; 
         currentChatId = null; 
         document.querySelectorAll('.chat-item').forEach(el => el.classList.remove('active'));
         document.querySelector('.app-container')?.classList.remove('chat-active');
       } else {
         sidebarView!.style.display = 'none';
+        sidebarView!.classList.add('mobile-hidden');
         activeView!.style.display = 'flex';
+        activeView!.classList.add('mobile-active');
         if (activeView === viewChatsMain) {
           document.querySelector('.app-container')?.classList.add('chat-active');
         } else {
@@ -957,6 +963,7 @@ export async function setupChat(session: any) {
       if (bottomNav) bottomNav.style.display = 'flex';
       sidebarView!.style.display = 'flex';
       activeView!.style.display = 'flex';
+      activeView!.classList.add('mobile-active');
     }
   }
 
@@ -1534,8 +1541,8 @@ async function selectUserForChat(targetUserId: string, targetUsername: string) {
   document.querySelector('.app-container')?.classList.add('chat-active');
 
   if (window.innerWidth <= 960) {
-    document.getElementById('sidebar-view')!.style.display = 'none';
-    document.getElementById('chats-main-view')!.style.display = 'flex';
+    document.querySelector('.sidebar')?.classList.add('mobile-hidden');
+    document.querySelector('.chat-area')?.classList.add('mobile-active');
     const bottomNav = document.querySelector('.bottom-nav') as HTMLElement;
     if (bottomNav) bottomNav.style.display = 'none'; 
   }
@@ -1671,10 +1678,8 @@ async function selectChat(chatId: string, chatTitle: string) {
   
   // --- НОВОЕ: Показываем чат на мобилках при выборе ---
   if (window.innerWidth <= 960) {
-    const chatArea = document.querySelector('.chat-area') as HTMLElement;
-    if (chatArea) {
-      chatArea.style.display = 'flex'; // Возвращаем окно на экран
-    }
+    document.querySelector('.sidebar')?.classList.add('mobile-hidden');
+    document.querySelector('.chat-area')?.classList.add('mobile-active');
   }
   
   const states = getLocalObj(`chatStates_${myUserId!}`);
@@ -1807,8 +1812,8 @@ async function selectChat(chatId: string, chatTitle: string) {
   document.querySelector('.app-container')?.classList.add('chat-active');
 
   if (window.innerWidth <= 960) {
-    document.getElementById('sidebar-view')!.style.display = 'none';
-    document.getElementById('chats-main-view')!.style.display = 'flex';
+    document.querySelector('.sidebar')?.classList.add('mobile-hidden');
+    document.querySelector('.chat-area')?.classList.add('mobile-active');
     const bottomNav = document.querySelector('.bottom-nav') as HTMLElement;
     if (bottomNav) bottomNav.style.display = 'none'; 
   }
@@ -2089,14 +2094,3 @@ export async function loadCalls() {
      callsList.appendChild(li);
   });
 }
-
-// Жёстко прячем окно диалога при запуске на телефонах
-window.addEventListener('DOMContentLoaded', () => {
-  if (window.innerWidth <= 960) {
-    const chatArea = document.querySelector('.chat-area') as HTMLElement;
-    // Если чат не выбран, скрываем его, чтобы остался только список чатов (sidebar)
-    if (chatArea && !currentChatId) {
-      chatArea.style.display = 'none';
-    }
-  }
-});
