@@ -1243,10 +1243,20 @@ export async function setupChat(session: any) {
     step1?.classList.add('active');
   });
 
+  document.getElementById('close-validation-error-btn')?.addEventListener('click', () => {
+    document.getElementById('validation-error-modal')?.classList.remove('active');
+  });
+
   // Переход на Шаг 2 (Выбор людей)
   document.getElementById('channel-next-btn')?.addEventListener('click', async () => {
     const name = (document.getElementById('channel-name-input') as HTMLInputElement).value.trim();
-    if (name.length < 3 || name.length > 50) return alert('Название должно содержать от 3 до 50 символов!');
+    if (name.length < 3 || name.length > 50) {
+      const valModal = document.getElementById('validation-error-modal');
+      const valText = document.getElementById('validation-error-text');
+      if (valText) valText.innerText = 'Название должно содержать от 3 до 50 символов!';
+      valModal?.classList.add('active');
+      return;
+    }
     
     step1?.classList.remove('active');
     step2?.classList.add('active');
