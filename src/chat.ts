@@ -610,14 +610,16 @@ export function handleIncomingMessage(newMsg: any) {
   if (processedNotifications.has(newMsg.id)) return;
   processedNotifications.add(newMsg.id);
 
-  const notifySys = (title: string, body: string) => {
+  const notifySys = async (title: string, body: string) => {
     if ('Notification' in window && Notification.permission === 'granted') {
       if (document.visibilityState === 'hidden' || newMsg.chat_id !== currentChatId) {
-         navigator.serviceWorker?.ready.then(reg => {
-            reg.showNotification(title, { body, vibrate: [200,100,200] } as any);
-         }).catch(() => {
-            new Notification(title, { body });
-         });
+        try {
+          const reg = await navigator.serviceWorker?.getRegistration();
+          if (reg) reg.showNotification(title, { body, vibrate: [200,100,200], icon: '/vite.svg' } as any);
+          else new Notification(title, { body, icon: '/vite.svg' });
+        } catch (e) {
+          new Notification(title, { body, icon: '/vite.svg' });
+        }
       }
     }
   };
@@ -1070,14 +1072,19 @@ export async function setupChat(session: any) {
 
   const notifToggle = document.getElementById('toggle-notifications') as HTMLInputElement;
   notifToggle.checked = localStorage.getItem('notifications_enabled') === 'true';
-  notifToggle.addEventListener('change', (e) => {
+  notifToggle.addEventListener('change', async (e) => {
     const isChecked = (e.target as HTMLInputElement).checked;
-    localStorage.setItem('notifications_enabled', isChecked.toString());
     if (isChecked && 'Notification' in window) {
-      if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-        Notification.requestPermission(); // Запрашиваем доступ при включении тумблера
+      let perm = Notification.permission;
+      if (perm === 'default') perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        alert('Уведомления заблокированы. Разрешите их в настройках браузера (сайта) и попробуйте снова.');
+        (e.target as HTMLInputElement).checked = false;
+        localStorage.setItem('notifications_enabled', 'false');
+        return;
       }
     }
+    localStorage.setItem('notifications_enabled', isChecked.toString());
   });
 
   const navChats = document.getElementById('nav-chats');
@@ -2117,9 +2124,10 @@ async function selectChat(chatId: string, chatTitle: string) {
          if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState === 'hidden') {
              const title = 'Входящий звонок';
              const body = `Вам звонит ${payload.payload.caller}`;
-             navigator.serviceWorker?.ready.then(reg => {
-                 reg.showNotification(title, { body, vibrate: [500, 200, 500, 200, 500] } as any);
-             }).catch(() => new Notification(title, { body }));
+             navigator.serviceWorker?.getRegistration().then(reg => {
+                 if (reg) reg.showNotification(title, { body, vibrate: [500, 200, 500, 200, 500], icon: '/vite.svg' } as any);
+                 else new Notification(title, { body, icon: '/vite.svg' });
+             }).catch(() => new Notification(title, { body, icon: '/vite.svg' }));
          }
        }
     })
