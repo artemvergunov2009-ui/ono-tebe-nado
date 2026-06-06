@@ -221,6 +221,16 @@ export function renderChat(container: HTMLDivElement) {
             </div>
           </div>
 
+          <div class="tg-list-group" id="admin-panel-group" style="display: none;">
+            <div class="tg-list-item" id="btn-admin-panel">
+              <div class="tg-list-left">
+                <div class="tg-list-icon bg-red" style="background: linear-gradient(135deg, #f59e0b, #d97706);"><i class="fas fa-shield-alt"></i></div>
+                <div class="tg-list-text">Админ-панель</div>
+              </div>
+              <div class="tg-list-right"><i class="fas fa-chevron-right"></i></div>
+            </div>
+          </div>
+
           <div class="tg-list-group">
             <div class="tg-list-item">
               <div class="tg-list-left">
@@ -323,6 +333,26 @@ export function renderChat(container: HTMLDivElement) {
           </div>
         </div>
         <p style="margin-top: 16px; font-size: 13px; color: var(--text-muted); text-align: center;">Включите или выключите звуковые уведомления приложения.</p>
+      </div>
+    </div>
+
+    <div id="subview-admin-panel" class="subview glass-panel">
+      <div class="chat-header">
+        <button class="back-btn" id="back-from-admin-panel" style="background:none;border:none;display:flex;align-items:center;color:var(--primary);cursor:pointer;font-size:16px;font-weight:500;">
+          <i class="fas fa-arrow-left" style="margin-right:8px;"></i> Назад
+        </button>
+        <h3 style="flex:1;text-align:center;margin-right:70px;font-size:18px;">Админ-панель</h3>
+      </div>
+      <div style="padding: 24px;">
+        <div class="tg-list-group" style="margin: 0;">
+          <div class="tg-list-item" style="cursor: default;">
+            <div class="tg-list-left"><span class="tg-list-text">Режим обновления</span></div>
+            <div class="tg-list-right">
+              <label class="toggle-switch"><input type="checkbox" id="toggle-maintenance-mode"><span class="slider"></span></label>
+            </div>
+          </div>
+        </div>
+        <p style="margin-top: 16px; font-size: 13px; color: var(--text-muted); text-align: center;">Включение блокирует доступ всем пользователям, кроме администратора.</p>
       </div>
     </div>
 
@@ -479,6 +509,42 @@ export function renderChat(container: HTMLDivElement) {
             <button id="btn-del-msg-cancel" class="btn-cancel" style="width: 100%; margin: 0; margin-top: 4px; background: transparent;">Отмена</button>
           </div>
         </div>
+      </div>
+
+      <div id="create-channel-step1" class="subview glass-panel">
+        <div class="chat-header">
+          <button class="back-btn" id="cancel-channel-create" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;"><i class="fas fa-arrow-left"></i></button>
+          <h3 style="flex:1;text-align:center;font-size:18px;">Создать канал</h3>
+          <button id="channel-next-btn" style="background:none;border:none;color:var(--accent-color);font-weight:600;font-size:16px;cursor:pointer;">Далее</button>
+        </div>
+        <div style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+          <div style="display: flex; gap: 16px; align-items: center; background: rgba(0,0,0,0.2); padding: 16px; border-radius: 20px; border: 1px solid var(--glass-border);">
+            <div id="channel-avatar-preview" style="width: 50px; height: 50px; background: rgba(255,255,255,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--accent-color); cursor: pointer; flex-shrink: 0; background-size: cover; background-position: center;">
+              <i class="fas fa-camera"></i>
+            </div>
+            <input type="file" id="channel-avatar-file" accept="image/*" style="display: none;">
+            <input type="text" id="channel-name-input" placeholder="Название канала" autocomplete="off" style="flex: 1; background: transparent; border: none; color: white; outline: none; font-size: 16px;">
+          </div>
+          <div style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 20px; border: 1px solid var(--glass-border);">
+            <input type="text" id="channel-desc-input" placeholder="Описание" autocomplete="off" style="width: 100%; background: transparent; border: none; color: white; outline: none; font-size: 16px;">
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">Можете указать дополнительное описание канала.</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="create-channel-step2" class="subview glass-panel">
+        <div class="chat-header">
+          <button class="back-btn" id="back-to-channel-step1" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;"><i class="fas fa-arrow-left"></i></button>
+          <h3 style="flex:1;text-align:center;font-size:18px;">Добавить участников</h3>
+          <button id="channel-create-btn" style="background:none;border:none;color:var(--accent-color);font-weight:600;font-size:16px;cursor:pointer;">Создать</button>
+        </div>
+        <div id="channel-contacts-list" style="padding: 16px; overflow-y: auto; flex: 1;"></div>
+      </div>
+
+      <div id="update-screen-overlay">
+        <div class="update-spinner"></div>
+        <h2 style="color: white; margin-bottom: 12px;">Техническое обслуживание</h2>
+        <p style="color: var(--text-muted); max-width: 320px; line-height: 1.5; margin: 0;">В данный момент мы устанавливаем важное обновление. Пожалуйста, зайдите немного позже.</p>
       </div>
 
     </div>
@@ -875,7 +941,8 @@ export async function setupChat(session: any) {
     }).subscribe();
 
   const updateLastSeen = async () => {
-    await supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', myUserId!);
+    const { error } = await supabase.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', myUserId!);
+    if (error) console.error('Ошибка обновления last_seen:', error.message);
   };
   updateLastSeen();
   setInterval(updateLastSeen, 60000); 
@@ -916,6 +983,43 @@ export async function setupChat(session: any) {
   const subviewNotifications = document.getElementById('subview-notifications');
   document.getElementById('btn-notifications')?.addEventListener('click', () => subviewNotifications?.classList.add('active'));
   document.getElementById('back-from-notifications')?.addEventListener('click', () => subviewNotifications?.classList.remove('active'));
+
+  // --- АДМИН-ПАНЕЛЬ И РЕЖИМ ОБНОВЛЕНИЯ ---
+  const ADMIN_EMAIL = 'artiproektor1063@gmail.com';
+  const isAdmin = session.user.email === ADMIN_EMAIL;
+
+  if (isAdmin) {
+    document.getElementById('admin-panel-group')!.style.display = 'block';
+    
+    const subviewAdmin = document.getElementById('subview-admin-panel');
+    document.getElementById('btn-admin-panel')?.addEventListener('click', async () => {
+      subviewAdmin?.classList.add('active');
+      const { data } = await supabase.from('app_settings').select('value').eq('id', 'maintenance_mode').single();
+      if (data) (document.getElementById('toggle-maintenance-mode') as HTMLInputElement).checked = data.value;
+    });
+    
+    document.getElementById('back-from-admin-panel')?.addEventListener('click', () => subviewAdmin?.classList.remove('active'));
+    document.getElementById('toggle-maintenance-mode')?.addEventListener('change', async (e) => {
+      const isChecked = (e.target as HTMLInputElement).checked;
+      await supabase.from('app_settings').upsert({ id: 'maintenance_mode', value: isChecked });
+    });
+  }
+
+  const checkMaintenance = async () => {
+    if (isAdmin) return;
+    const { data } = await supabase.from('app_settings').select('value').eq('id', 'maintenance_mode').single();
+    if (data && data.value === true) document.getElementById('update-screen-overlay')?.classList.add('active');
+    else document.getElementById('update-screen-overlay')?.classList.remove('active');
+  };
+  await checkMaintenance(); // Блокируем при запуске, если нужно
+
+  // Слушаем изменения статуса обновления в реальном времени
+  supabase.channel('maintenance_channel').on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings', filter: 'id=eq.maintenance_mode' }, (payload: any) => {
+    if (!isAdmin) {
+      if (payload.new && payload.new.value === true) document.getElementById('update-screen-overlay')?.classList.add('active');
+      else document.getElementById('update-screen-overlay')?.classList.remove('active');
+    }
+  }).subscribe();
 
   document.getElementById('back-from-other-profile')?.addEventListener('click', () => {
     document.getElementById('subview-other-profile')?.classList.remove('active');
@@ -1093,7 +1197,123 @@ export async function setupChat(session: any) {
   const composeCloseBtn = document.getElementById('compose-close-btn');
   const composeSearchInput = document.getElementById('compose-search-input') as HTMLInputElement;
   const btnNewGroup = document.getElementById('btn-new-group');
-  const btnNewChannel = document.getElementById('btn-new-channel');
+
+  // Логика кнопки создания канала
+  document.getElementById('btn-new-channel')?.addEventListener('click', () => {
+    document.getElementById('compose-sheet-overlay')?.classList.remove('active');
+    
+    const nameInput = document.getElementById('channel-name-input') as HTMLInputElement;
+    if (nameInput) nameInput.value = '';
+    const descInput = document.getElementById('channel-desc-input') as HTMLInputElement;
+    if (descInput) descInput.value = '';
+    
+    if (avatarPreview) {
+      avatarPreview.style.backgroundImage = 'none';
+      avatarPreview.innerHTML = '<i class="fas fa-camera"></i>';
+    }
+    channelAvatarFile = null;
+    step1?.classList.add('active'); // Вот здесь он активирует окно
+  });
+
+  const step1 = document.getElementById('create-channel-step1');
+  const step2 = document.getElementById('create-channel-step2');
+  const avatarPreview = document.getElementById('channel-avatar-preview');
+  const avatarFileInput = document.getElementById('channel-avatar-file') as HTMLInputElement;
+  let channelAvatarFile: File | null = null;
+
+  // Загрузка фото
+  avatarPreview?.addEventListener('click', () => avatarFileInput?.click());
+  avatarFileInput?.addEventListener('change', (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (file) {
+      channelAvatarFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        avatarPreview!.style.backgroundImage = `url('${e.target?.result}')`;
+        avatarPreview!.innerHTML = '';
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  // Кнопки "Назад" и "Отмена"
+  document.getElementById('cancel-channel-create')?.addEventListener('click', () => step1?.classList.remove('active'));
+  document.getElementById('back-to-channel-step1')?.addEventListener('click', () => {
+    step2?.classList.remove('active');
+    step1?.classList.add('active');
+  });
+
+  // Переход на Шаг 2 (Выбор людей)
+  document.getElementById('channel-next-btn')?.addEventListener('click', async () => {
+    const name = (document.getElementById('channel-name-input') as HTMLInputElement).value.trim();
+    if (name.length < 3 || name.length > 50) return alert('Название должно содержать от 3 до 50 символов!');
+    
+    step1?.classList.remove('active');
+    step2?.classList.add('active');
+    
+    // Загружаем контакты (с кем есть диалоги)
+    const list = document.getElementById('channel-contacts-list')!;
+    list.innerHTML = '<div style="text-align:center; color:var(--text-muted);">Загрузка...</div>';
+    
+    const { data: myMembers } = await supabase.from('chat_members').select('chat_id, chats!inner(is_group)').eq('user_id', myUserId!).eq('chats.is_group', false);
+    const directChatIds = myMembers?.map((m: any) => m.chat_id) || [];
+    let users: any[] = [];
+    if (directChatIds.length > 0) {
+      const { data: otherMembers } = await supabase.from('chat_members').select('user_id, profiles(username)').in('chat_id', directChatIds).neq('user_id', myUserId!);
+      if (otherMembers) users = otherMembers.map((m: any) => ({ id: m.user_id, username: Array.isArray(m.profiles) ? m.profiles[0]?.username : m.profiles?.username }));
+    }
+    
+    list.innerHTML = users.length === 0 ? '<div style="text-align:center; color:var(--text-muted);">Нет контактов</div>' : '';
+    users.forEach(u => {
+      const item = document.createElement('div');
+      item.className = 'tg-list-item';
+      item.innerHTML = `
+        <div class="tg-list-left">
+          <div class="tg-list-icon" style="background: var(--primary-gradient);">${(u.username || 'U').charAt(0).toUpperCase()}</div>
+          <div class="tg-list-text">${u.username || 'Пользователь'}</div>
+        </div>
+        <div class="tg-list-right"><input type="checkbox" class="channel-user-cb" value="${u.id}" style="width:20px;height:20px;"></div>
+      `;
+      list.appendChild(item);
+    });
+  });
+
+  // Финальное создание
+  document.getElementById('channel-create-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('channel-create-btn') as HTMLButtonElement;
+    btn.innerText = 'Создание...'; btn.disabled = true;
+
+    const title = (document.getElementById('channel-name-input') as HTMLInputElement).value.trim();
+    const desc = (document.getElementById('channel-desc-input') as HTMLInputElement).value.trim();
+    let finalAvatarUrl = null;
+
+    // 1. Грузим аватарку (если есть)
+    if (channelAvatarFile) {
+      const filePath = `channels/${Date.now()}_${channelAvatarFile.name}`;
+      const { error } = await supabase.storage.from('avatars').upload(filePath, channelAvatarFile);
+      if (!error) finalAvatarUrl = supabase.storage.from('avatars').getPublicUrl(filePath).data.publicUrl;
+    }
+
+    // 2. Создаем канал в БД
+    const { data: chat, error: chatError } = await supabase.from('chats').insert([{ 
+      title, is_group: true, is_channel: true, owner_id: myUserId!, description: desc, avatar_url: finalAvatarUrl 
+    }]).select().single();
+
+    if (chat && !chatError) {
+      // 3. Добавляем создателя и выбранных людей
+      const selectedUsers = Array.from(document.querySelectorAll('.channel-user-cb:checked')).map((cb: any) => cb.value);
+      const membersToInsert = [{ chat_id: chat.id, user_id: myUserId! }];
+      selectedUsers.forEach(id => membersToInsert.push({ chat_id: chat.id, user_id: id }));
+      await supabase.from('chat_members').insert(membersToInsert);
+
+      step2?.classList.remove('active');
+      await loadChats();
+    } else {
+      console.error('Ошибка Supabase при создании канала:', chatError);
+      alert('Ошибка при создании канала: ' + (chatError?.message || 'Неизвестная ошибка'));
+    }
+    btn.innerText = 'Создать'; btn.disabled = false;
+  });
 
   const ctxMenu = document.getElementById('context-menu')!;
   document.addEventListener('click', (e) => {
@@ -1742,6 +1962,17 @@ async function selectChat(chatId: string, chatTitle: string) {
   const addUserBtn = document.getElementById('add-user-btn');
   if (addUserBtn) addUserBtn.style.display = isGroup ? 'flex' : 'none';
   
+  // Прячем кнопки аудио/видео звонков, если это канал
+  const callBtn = document.getElementById('call-btn');
+  const videoCallBtn = document.getElementById('video-call-btn');
+  if (chatData?.is_channel) {
+    if (callBtn) callBtn.style.display = 'none';
+    if (videoCallBtn) videoCallBtn.style.display = 'none';
+  } else {
+    if (callBtn) callBtn.style.display = 'flex';
+    if (videoCallBtn) videoCallBtn.style.display = 'flex';
+  }
+
   const { data: membersRaw } = await supabase.from('chat_members').select('user_id').eq('chat_id', chatId);
   currentChatMembersMap = {};
   let otherUser: any = null;
