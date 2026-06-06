@@ -166,9 +166,10 @@ body {
 .nav-item span { font-size: 13px; font-weight: 500; }
 
 /* MODALS & SUBVIEWS */
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 100; opacity: 0; pointer-events: none; transition: 0.3s; }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 10000; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
 .modal-overlay.active { opacity: 1; pointer-events: auto; }
-.modal-content { padding: 32px; width: 100%; max-width: 420px; text-align: left; }
+.modal-content { padding: 32px; width: 100%; max-width: 420px; text-align: left; transform: scale(0.95) translateY(10px); opacity: 0; transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.modal-overlay.active .modal-content { transform: scale(1) translateY(0); opacity: 1; }
 .modal-content h3 { margin: 0 0 24px 0; text-align: center; color: white; font-size: 22px; }
 .modal-actions { display: flex; gap: 16px; margin-top: 16px; }
 .btn-cancel { flex: 1; padding: 14px; background: rgba(255,255,255,0.1); border-radius: 18px; color: white; border: none; cursor: pointer; transition: 0.2s; font-weight: 600; font-size: 15px;}
@@ -270,6 +271,22 @@ input:checked + .slider:before { transform: translateX(20px); }
 .call-btn.accept { background: rgba(46, 204, 113, 0.8); box-shadow: 0 4px 20px rgba(46, 204, 113, 0.5); }
 .call-btn.accept:hover { background: #2ecc71; transform: scale(1.1); }
 @keyframes pulseCall { 0% { box-shadow: 0 0 0 0 rgba(138, 43, 226, 0.6); } 70% { box-shadow: 0 0 0 40px rgba(138, 43, 226, 0); } 100% { box-shadow: 0 0 0 0 rgba(138, 43, 226, 0); } }
+
+/* UPDATE SCREEN (MAINTENANCE) */
+#update-screen-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg-color); z-index: 999999;
+    display: none; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+    backdrop-filter: blur(10px);
+}
+#update-screen-overlay.active { display: flex; }
+.update-spinner {
+    width: 60px; height: 60px; border: 5px solid rgba(255,255,255,0.05);
+    border-top-color: var(--accent-color); border-radius: 50%;
+    animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite; 
+    margin-bottom: 24px;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
 
 @media (max-width: 960px) {
     .mobile-only { display: block; }
