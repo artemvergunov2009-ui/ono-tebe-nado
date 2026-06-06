@@ -23,8 +23,8 @@ html, body {
     padding: 0;
     width: 100%;
     height: 100%;
-    overflow: hidden; /* Запрещаем системный скролл страницы */
-    background-color: #1a103c; /* Цвет подложки под стиль приложения */
+    overflow: hidden; 
+    background-color: #1a103c; 
 }
 
 body {
@@ -291,8 +291,8 @@ input:checked + .slider:before { transform: translateX(20px); }
     /* 2. Сайдбар (список чатов) - ВИДИМ по умолчанию */
     .sidebar {
         width: 100% !important;
-        flex: 1 !important; /* Растягивается на всё доступное место */
-        padding-bottom: calc(75px + env(safe-area-inset-bottom)) !important; /* Отступ под меню */
+        flex: 1 !important; 
+        padding-bottom: calc(75px + env(safe-area-inset-bottom)) !important; 
         display: flex !important; 
         border: none !important;
         border-radius: 0 !important;
@@ -303,11 +303,11 @@ input:checked + .slider:before { transform: translateX(20px); }
     .chat-area {
         width: 100% !important;
         flex: 1 !important;
-        display: none !important; /* Прячем до тех пор, пока не откроем чат */
+        display: none !important; 
         border: none !important;
         border-radius: 0 !important;
         margin: 0 !important;
-        padding-bottom: env(safe-area-inset-bottom) !important; /* Без подбородка */
+        padding-bottom: env(safe-area-inset-bottom) !important; 
     }
 
     /* 4. Магия переключения: эти классы будет добавлять наш JS */
@@ -339,7 +339,5 @@ input:checked + .slider:before { transform: translateX(20px); }
     }
 
     /* 7. Прячем десктопную заглушку */
-    #no-chat-selected {
-        display: none !important;
-    }
+    #no-chat-selected { display: none !important; }
 }
