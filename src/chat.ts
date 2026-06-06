@@ -1730,9 +1730,18 @@ async function selectChat(chatId: string, chatTitle: string) {
      loadChats();
   }
 
-  const { data: chatData } = await supabase.from('chats').select('is_group').eq('id', chatId).single();
+  // Получаем расширенные данные (включая инфу о канале)
+  const { data: chatData } = await supabase.from('chats').select('is_group, is_channel, owner_id').eq('id', chatId).single();
   const isGroup = chatData?.is_group === true;
   currentChatIsGroup = isGroup; 
+  
+  // Прячем поле ввода, если это канал и ты не его создатель
+  const inputArea = document.getElementById('input-area') as HTMLElement;
+  if (chatData?.is_channel && chatData.owner_id !== myUserId) {
+    inputArea.style.display = 'none';
+  } else {
+    inputArea.style.display = 'flex';
+  }
   
   const addUserBtn = document.getElementById('add-user-btn');
   if (addUserBtn) addUserBtn.style.display = isGroup ? 'flex' : 'none';
