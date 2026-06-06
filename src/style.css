@@ -274,75 +274,71 @@ input:checked + .slider:before { transform: translateX(20px); }
 @media (max-width: 960px) {
     .mobile-only { display: block; }
     
-    /* 1. КОНТЕЙНЕР: Убиваем grid. Делаем обычный блок на весь экран */
+    /* 1. Возвращаем нормальный flex-контейнер на весь экран */
     .app-container {
-        display: block !important; /* Убивает деление экрана на две части! */
+        display: flex !important;
+        flex-direction: column !important;
         width: 100vw !important;
         height: 100dvh !important;
         margin: 0 !important;
         padding: 0 !important;
-        padding-top: env(safe-area-inset-top) !important;
+        padding-top: max(env(safe-area-inset-top), 47px) !important;
         border-radius: 0 !important;
         border: none !important;
         box-sizing: border-box !important;
     }
 
-    /* 2. СПИСКИ (Чаты, Звонки, Настройки): Растягиваем на весь экран под меню */
-    .sidebar, 
-    #calls-view, 
-    #settings-view {
-        position: absolute !important;
-        top: env(safe-area-inset-top) !important;
-        left: 0 !important;
+    /* 2. Сайдбар (список чатов) - ВИДИМ по умолчанию */
+    .sidebar {
         width: 100% !important;
-        height: calc(100dvh - env(safe-area-inset-top)) !important;
-        margin: 0 !important;
-        /* Добавляем отступ снизу, чтобы последние чаты не прятались под навигацией */
-        padding-bottom: calc(70px + env(safe-area-inset-bottom)) !important; 
-        box-sizing: border-box !important;
-        background: transparent !important;
-        z-index: 10 !important;
-    }
-
-    /* 3. ОКНО ДИАЛОГА: Когда открыто, жестко перекрывает ВООБЩЕ ВСЁ (даже нижнее меню) */
-    .chat-area {
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100dvh !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        padding-top: env(safe-area-inset-top) !important;
-        background: var(--bg-color) !important; /* Сплошной фон, чтобы ничего не просвечивало */
-        z-index: 100 !important; 
-        box-sizing: border-box !important;
+        flex: 1 !important; /* Растягивается на всё доступное место */
+        padding-bottom: calc(75px + env(safe-area-inset-bottom)) !important; /* Отступ под меню */
+        display: flex !important; 
+        border: none !important;
         border-radius: 0 !important;
+        margin: 0 !important;
     }
 
-    /* 4. ПОЛЕ ВВОДА: Прилипает к низу, внутри только системная полоска */
-    .input-area {
-        padding-bottom: max(env(safe-area-inset-bottom), 12px) !important;
+    /* 3. Чат-зона - СКРЫТА по умолчанию на мобилках */
+    .chat-area {
+        width: 100% !important;
+        flex: 1 !important;
+        display: none !important; /* Прячем до тех пор, пока не откроем чат */
+        border: none !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        padding-bottom: env(safe-area-inset-bottom) !important; /* Без подбородка */
     }
 
-    /* 5. НИЖНЯЯ НАВИГАЦИЯ: УБИВАЕМ ПОДБОРОДОК */
+    /* 4. Магия переключения: эти классы будет добавлять наш JS */
+    .chat-area.mobile-active {
+        display: flex !important; 
+    }
+    .sidebar.mobile-hidden {
+        display: none !important;
+    }
+
+    /* 5. Навигация внизу прибита намертво */
     .bottom-nav {
         position: fixed !important;
         bottom: 0 !important;
         left: 0 !important;
         width: 100% !important;
-        height: auto !important;
         margin: 0 !important;
-        /* Отступ снизу равен строго размеру системной полоски (если её нет - будет 0) */
-        padding: 12px 0 env(safe-area-inset-bottom) 0 !important; 
-        z-index: 90 !important; 
+        z-index: 9999 !important;
         background: #1a103c !important;
         border-top: 1px solid var(--glass-border) !important;
         border-radius: 0 !important;
-        box-sizing: border-box !important;
+        padding-top: 12px !important;
+        padding-bottom: max(env(safe-area-inset-bottom), 12px) !important;
     }
 
-    /* 6. Жестко прячем заглушку "Выберите чат" на мобилках */
+    /* 6. Поле ввода: системная полоска внутри, а не снизу */
+    .input-area {
+        padding-bottom: max(env(safe-area-inset-bottom), 20px) !important;
+    }
+
+    /* 7. Прячем десктопную заглушку */
     #no-chat-selected {
         display: none !important;
     }
