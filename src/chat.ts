@@ -511,6 +511,27 @@ export function renderChat(container: HTMLDivElement) {
         </div>
       </div>
 
+      <div id="confirm-logout-modal" class="modal-overlay">
+        <div class="modal-content glass-panel" style="text-align: center;">
+          <h3 style="margin-bottom: 16px;">Выход из аккаунта</h3>
+          <p style="color: var(--text-muted); margin-bottom: 24px;">Вы действительно хотите выйти?</p>
+          <div class="modal-actions">
+            <button id="cancel-logout-btn" class="btn-cancel">Отмена</button>
+            <button id="confirm-logout-btn" class="btn-confirm" style="background: #ef4444; color: white;">Выйти</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="validation-error-modal" class="modal-overlay">
+        <div class="modal-content glass-panel" style="text-align: center;">
+          <h3 style="margin-bottom: 16px;">Ошибка</h3>
+          <p id="validation-error-text" style="color: var(--text-muted); margin-bottom: 24px;">Название должно содержать от 3 до 50 символов!</p>
+          <div class="modal-actions">
+            <button id="close-validation-error-btn" class="btn-confirm" style="width: 100%;">Понятно</button>
+          </div>
+        </div>
+      </div>
+
       <div id="create-channel-step1" class="subview glass-panel">
         <div class="chat-header">
           <button class="back-btn" id="cancel-channel-create" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;"><i class="fas fa-arrow-left"></i></button>
@@ -1108,8 +1129,16 @@ export async function setupChat(session: any) {
       document.querySelector('.app-container')?.classList.remove('chat-active');
   });
 
+  const logoutModal = document.getElementById('confirm-logout-modal');
   document.getElementById('logout-btn')?.addEventListener('click', () => {
-    if(confirm('Точно выйти из аккаунта?')) supabase.auth.signOut();
+    logoutModal?.classList.add('active');
+  });
+  document.getElementById('cancel-logout-btn')?.addEventListener('click', () => {
+    logoutModal?.classList.remove('active');
+  });
+  document.getElementById('confirm-logout-btn')?.addEventListener('click', () => {
+    logoutModal?.classList.remove('active');
+    supabase.auth.signOut();
   });
 
   const composeBtn = document.getElementById('compose-btn');
