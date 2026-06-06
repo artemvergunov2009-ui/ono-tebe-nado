@@ -2082,21 +2082,13 @@ export async function loadCalls() {
   });
 }
 
-// --- ФИКС ДЛЯ МОБИЛОК: ПОКАЗЫВАЕМ СПИСОК ЧАТОВ ПРИ СТАРТЕ ---
+// Жёстко прячем экран чата при запуске на мобилках
 window.addEventListener('DOMContentLoaded', () => {
-  // Проверяем: если ширина экрана как у телефона и никакой чат не открыт
-  if (window.innerWidth <= 960 && !currentChatId) {
+  if (window.innerWidth <= 960) {
     const mainView = document.getElementById('chats-main-view');
-    const sidebarView = document.getElementById('sidebar-view');
-    const bottomNav = document.querySelector('.bottom-nav') as HTMLElement;
-
-    // Прячем пустой экран сообщений
-    if (mainView) mainView.style.display = 'none';
-    
-    // Показываем список чатов
-    if (sidebarView) sidebarView.style.display = 'flex';
-    
-    // Убеждаемся, что нижняя навигация (Чаты, Звонки, Настройки) тоже видна
-    if (bottomNav) bottomNav.style.display = 'flex'; 
+    // Если ни один чат не выбран, сразу вырубаем этот блок
+    if (mainView && !currentChatId) {
+      mainView.style.display = 'none';
+    }
   }
 });
