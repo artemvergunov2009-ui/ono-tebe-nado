@@ -288,6 +288,61 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 @keyframes spin { 100% { transform: rotate(360deg); } }
 
+/* --- КАСТОМНЫЕ ПЛЕЕРЫ (ГС И КРУЖОЧКИ) --- */
+.custom-audio-player {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 8px 14px;
+    border-radius: 30px;
+    width: 240px;
+}
+.audio-play-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    color: white; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 14px;
+}
+.audio-track-container {
+    flex: 1; display: flex; flex-direction: column; justify-content: center;
+}
+/* Стилизуем ползунок, чтобы он выглядел как линия прослушивания */
+.audio-slider {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 4px; background: rgba(255,255,255,0.2);
+    border-radius: 3px; outline: none; cursor: pointer; margin-bottom: 6px;
+}
+.audio-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: white; cursor: pointer; transition: 0.2s;
+}
+.audio-slider::-webkit-slider-thumb:hover { transform: scale(1.3); }
+.audio-time { font-size: 11px; color: var(--text-muted); font-weight: 500; margin-top: -2px; }
+
+/* Дизайн кружочка */
+.custom-video-circle {
+    position: relative; width: 220px; height: 220px;
+    border-radius: 50%; cursor: pointer;
+    background: transparent; display: flex; align-items: center; justify-content: center;
+}
+.custom-video-circle video {
+    width: 100%; height: 100%; object-fit: cover; border-radius: 50%; pointer-events: none;
+}
+.video-progress-ring {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    transform: rotate(-90deg); /* Начинаем сверху (с 12 часов) */
+    pointer-events: none;
+}
+.video-progress-ring circle {
+    fill: transparent; stroke-width: 4; stroke-linecap: round;
+}
+.ring-bg { stroke: rgba(255,255,255,0.05); }
+.ring-progress { stroke: var(--accent-color); transition: stroke-dashoffset 0.1s linear; pointer-events: stroke; cursor: pointer; }
+
 @media (max-width: 960px) {
     .mobile-only { display: block; }
     
@@ -357,4 +412,23 @@ input:checked + .slider:before { transform: translateX(20px); }
 
     /* 7. Прячем десктопную заглушку */
     #no-chat-selected { display: none !important; }
+}
+
+/* --- СТИЛИ ДЛЯ ГС И КРУЖОЧКОВ --- */
+@keyframes pulseRecord {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); background: linear-gradient(135deg, #ef4444, #dc2626); }
+    50% { transform: scale(1.2); box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); background: #ef4444; }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); background: linear-gradient(135deg, #ef4444, #dc2626); }
+}
+
+.recording-pulse {
+    animation: pulseRecord 1.5s infinite !important;
+}
+
+/* Красивый плеер для голосовых */
+audio {
+    height: 40px;
+    outline: none;
+    border-radius: 20px;
+    max-width: 100%;
 }
