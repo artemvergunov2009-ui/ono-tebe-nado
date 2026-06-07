@@ -135,6 +135,12 @@ export function renderChat(container: HTMLDivElement) {
 
             <div id="messages-list" class="messages-list"></div>
             
+            <div id="video-record-overlay" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 12, 41, 0.85); backdrop-filter: blur(8px); z-index: 50; flex-direction: column; align-items: center; justify-content: center;">
+                <video id="video-record-preview" autoplay muted playsinline style="width: 260px; height: 260px; border-radius: 50%; object-fit: cover; border: 4px solid #ef4444; box-shadow: 0 0 40px rgba(239, 68, 68, 0.4); transform: scaleX(-1);"></video>
+                <div id="record-timer" style="color: white; margin-top: 24px; font-size: 24px; font-weight: 700; text-shadow: 0 2px 5px rgba(0,0,0,0.5);">00:00</div>
+                <div style="color: var(--text-muted); margin-top: 12px; font-size: 15px;">Отпустите палец для отправки</div>
+            </div>
+            
             <div class="input-area" id="input-area">
               <div id="reply-banner" class="reply-banner" style="display: none;"></div>
               
@@ -617,7 +623,7 @@ export function handleIncomingMessage(newMsg: any) {
           const reg = await navigator.serviceWorker?.getRegistration();
           if (reg) reg.showNotification(title, { body, vibrate: [200,100,200], icon: '/vite.svg' } as any);
           else new Notification(title, { body, icon: '/vite.svg' });
-        } catch (e) {
+        } catch (_e) {
           new Notification(title, { body, icon: '/vite.svg' });
         }
       }
@@ -635,7 +641,7 @@ export function handleIncomingMessage(newMsg: any) {
          audio.play().catch(() => {});
          
          let text = newMsg.text;
-         try { text = JSON.parse(newMsg.text).text || 'Вложение'; } catch(e) {}
+         try { text = JSON.parse(newMsg.text).text || 'Вложение'; } catch(_e) {}
          notifySys(newMsg.sender_name || 'Новое сообщение', text);
       }
   } else if (newMsg.chat_id === currentChatId && newMsg.sender_id !== myUserId) {
@@ -644,7 +650,7 @@ export function handleIncomingMessage(newMsg: any) {
       
       if (localStorage.getItem('notifications_enabled') === 'true') {
          let text = newMsg.text;
-         try { text = JSON.parse(newMsg.text).text || 'Вложение'; } catch(e) {}
+         try { text = JSON.parse(newMsg.text).text || 'Вложение'; } catch(_e) {}
          notifySys(newMsg.sender_name || 'Новое сообщение', text);
       }
   }
@@ -699,7 +705,7 @@ export async function setupWebRTC(isCaller: boolean) {
     localStream = await navigator.mediaDevices.getUserMedia({ video: callType === 'video', audio: true });
     (document.getElementById('local-video') as HTMLVideoElement).srcObject = localStream;
     localStream.getTracks().forEach(t => pc!.addTrack(t, localStream!));
-  } catch (err) { alert("Не удалось получить доступ к камере или микрофону."); }
+  } catch (_err) { alert("Не удалось получить доступ к камере или микрофону."); }
   
   if (isCaller) {
     const offer = await pc.createOffer();
@@ -952,10 +958,15 @@ export async function setupChat(session: any) {
        const filePath = `${myUserId}-${Math.random()}.${fileExt}`;
        
        const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file);
-       if (!uploadError) {
-          const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-          finalAvatarUrl = data.publicUrl; 
+       if (uploadError) {
+          alert('Ошибка загрузки в Storage: ' + uploadError.message); // ТЕПЕРЬ МЫ УВИДИМ ОШИБКУ!
+          editSaveBtn.innerText = 'Сохранить';
+          editSaveBtn.disabled = false;
+          return; // Останавливаем сохранение
        }
+       
+       const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+       finalAvatarUrl = data.publicUrl; 
     }
 
     profileData.avatarUrl = finalAvatarUrl;
@@ -1545,16 +1556,168 @@ export async function setupChat(session: any) {
     } catch (err: any) { alert('Ошибка: ' + err.message); }
   });
 
+  // --- ЛОГИКА ГОЛОСОВЫХ И ВИДЕО СООБЩЕНИЙ ---
+  let mediaRecordMode: 'audio' | 'video' = 'audio';
+  let mediaRecorder: MediaRecorder | null = null;
+  let recordedChunks: Blob[] = [];
+  let recordStartTime = 0;
+  let recordTimerInterval: any = null;
+  let isRecording = false;
+  let preventNextClick = false;
+  let pressTimer: any = null;
+
+  const sendBtnIcon = sendMessageBtn!;
+
+  // Умное переключение иконки: Текст -> Самолетик, Пусто -> Микрофон/Камера
+  function updateSendButtonState() {
+    if (messageTextInput.value.trim().length > 0) {
+      sendBtnIcon.innerHTML = '<i class="fas fa-paper-plane"></i>';
+      sendBtnIcon.classList.remove('recording-pulse');
+    } else {
+      sendBtnIcon.innerHTML = mediaRecordMode === 'audio' ? '<i class="fas fa-microphone"></i>' : '<i class="fas fa-video"></i>';
+    }
+  }
+
+  // Обновляем кнопку при вводе текста
   messageTextInput?.addEventListener('input', () => {
+    updateSendButtonState();
     if (currentChatId) {
       supabase.channel(`room_${currentChatId!}`).send({
         type: 'broadcast', event: 'typing', payload: { user_id: myUserId!, username: myUsername }
       });
     }
   });
-  messageTextInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMsg(); });
-  sendMessageBtn?.addEventListener('click', sendMsg);
-  
+  updateSendButtonState(); // Инициализация при загрузке
+
+  // Запуск записи (при удержании)
+  const startRecording = async () => {
+    if (messageTextInput.value.trim().length > 0) return; // Если есть текст - не записываем
+    
+    try {
+      const constraints = mediaRecordMode === 'video' 
+        ? { audio: true, video: { facingMode: "user", aspectRatio: 1 } } 
+        : { audio: true };
+        
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      if (mediaRecordMode === 'video') {
+        document.getElementById('video-record-overlay')!.style.display = 'flex';
+        const preview = document.getElementById('video-record-preview') as HTMLVideoElement;
+        preview.srcObject = stream;
+      }
+      
+      mediaRecorder = new MediaRecorder(stream);
+      recordedChunks = [];
+      
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop()); // Выключаем камеру/микрофон
+        document.getElementById('video-record-overlay')!.style.display = 'none';
+        clearInterval(recordTimerInterval);
+        sendMessageBtn?.classList.remove('recording-pulse');
+        updateSendButtonState();
+        
+        const duration = Date.now() - recordStartTime;
+        if (duration < 600) return; // Если зажали на полсекунды - отменяем (как в ТГ)
+
+        const blob = new Blob(recordedChunks, { type: mediaRecordMode === 'video' ? 'video/webm' : 'audio/webm' });
+        await uploadAndSendMedia(blob, mediaRecordMode);
+      };
+      
+      mediaRecorder.start();
+      isRecording = true;
+      recordStartTime = Date.now();
+      sendMessageBtn?.classList.add('recording-pulse');
+      
+      // Таймер записи
+      const timerEl = document.getElementById('record-timer')!;
+      recordTimerInterval = setInterval(() => {
+        const secs = Math.floor((Date.now() - recordStartTime) / 1000);
+        timerEl.innerText = `00:${secs.toString().padStart(2, '0')}`;
+      }, 1000);
+
+    } catch (_err) {
+      alert("Нет доступа к микрофону или камере!");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop();
+      isRecording = false;
+    }
+  };
+
+  // Ловим зажатие (удерживание пальцем или мышкой)
+  const handlePressStart = (_e: Event) => {
+    if (messageTextInput.value.trim().length > 0) return;
+    preventNextClick = false;
+    pressTimer = setTimeout(() => {
+      preventNextClick = true; // Фиксируем, что это долгое удержание
+      startRecording();
+    }, 250); // 250 миллисекунд до начала записи
+  };
+
+  sendMessageBtn?.addEventListener('mousedown', handlePressStart);
+  sendMessageBtn?.addEventListener('touchstart', handlePressStart);
+
+  const handlePressEnd = () => {
+    clearTimeout(pressTimer);
+    if (isRecording) stopRecording();
+  };
+
+  // Ловим отпускание везде (даже если палец ушел с кнопки), чтобы запись не зависла
+  document.addEventListener('mouseup', handlePressEnd);
+  document.addEventListener('touchend', handlePressEnd);
+
+  // Обычный клик (отправка текста ИЛИ переключение микрофон/камера)
+  sendMessageBtn?.addEventListener('click', (e) => {
+    if (preventNextClick) {
+      e.preventDefault();
+      preventNextClick = false;
+      return;
+    }
+    if (messageTextInput.value.trim().length > 0) {
+      sendMsg(); // Отправляем текст
+      setTimeout(updateSendButtonState, 50); // Возвращаем микрофон после отправки
+    } else {
+      // Меняем режим записи, если текста нет
+      mediaRecordMode = mediaRecordMode === 'audio' ? 'video' : 'audio';
+      updateSendButtonState();
+    }
+  });
+
+  // Отправка по кнопке Enter на ПК
+  messageTextInput?.addEventListener('keypress', (e) => { 
+    if (e.key === 'Enter') { sendMsg(); setTimeout(updateSendButtonState, 50); } 
+  });
+
+  // Функция для выгрузки в Supabase
+  async function uploadAndSendMedia(blob: Blob, mode: 'audio'|'video') {
+    const ext = 'webm';
+    const filePath = `${currentChatId}/${Date.now()}_${Math.random()}.${ext}`;
+    
+    messageTextInput.placeholder = 'Отправка...';
+    messageTextInput.disabled = true;
+    
+    const { error } = await supabase.storage.from('chat_files').upload(filePath, blob);
+    
+    messageTextInput.placeholder = 'Написать сообщение...';
+    messageTextInput.disabled = false;
+    
+    if (error) return alert("Ошибка загрузки медиа");
+    
+    const { data } = supabase.storage.from('chat_files').getPublicUrl(filePath);
+    
+    const payload = JSON.stringify({
+      type: mode === 'video' ? 'circle_video' : 'voice',
+      url: data.publicUrl
+    });
+    
+    messageTextInput.value = payload;
+    sendMsg();
+  }
+
   async function sendMsg() {
     const text = messageTextInput.value.trim();
     if (!text || (!currentChatId && !pendingDirectChatUserId)) return;
@@ -1573,7 +1736,7 @@ export async function setupChat(session: any) {
       if (currentChatId && pinnedMessages[currentChatId]?.id === editedId) {
          pinnedMessages[currentChatId].text = text;
          try { pinnedMessages[currentChatId].parsedText = JSON.parse(text); } 
-         catch(e) { pinnedMessages[currentChatId].parsedText = text; }
+         catch(_e) { pinnedMessages[currentChatId].parsedText = text; }
          
          setLocalObj(`pinnedMessages_${myUserId!}`, pinnedMessages);
          renderPinnedBanner(); 
@@ -1715,7 +1878,7 @@ export async function setupChat(session: any) {
                pinnedMessages[updatedMsg.chat_id].text = updatedMsg.text;
                try { 
                    pinnedMessages[updatedMsg.chat_id].parsedText = JSON.parse(updatedMsg.text); 
-               } catch(e) { 
+               } catch(_e) { 
                    pinnedMessages[updatedMsg.chat_id].parsedText = updatedMsg.text; 
                }
                setLocalObj(`pinnedMessages_${myUserId!}`, pinnedMessages);
@@ -1973,7 +2136,7 @@ async function loadChats(inArchive: boolean = false, forForwarding: boolean = fa
     if (latestByChat[chatObj.id]) {
        const rawText = latestByChat[chatObj.id].text;
        try { previewText = JSON.parse(rawText).text || 'Вложение'; } 
-       catch(e) { previewText = rawText; }
+       catch(_e) { previewText = rawText; }
     }
     
     const unreadCount = states[chatObj.id]?.unread || 0;
@@ -2205,7 +2368,7 @@ function setupOtherUserProfile(userId: string) {
 async function loadMessages(chatId: string) {
   const messagesList = document.getElementById('messages-list');
   if (!messagesList) return;
-  const { data: messages, error } = await supabase.from('messages').select('id, text, sender_id, created_at, is_read, profiles(username)').eq('chat_id', chatId).order('created_at', { ascending: true });
+  const { data: messages, error } = await supabase.from('messages').select('id, text, sender_id, created_at, is_read, profiles(username, avatar_url)').eq('chat_id', chatId).order('created_at', { ascending: true });
   if (error) return console.error(error);
   renderedMessageIds.clear(); 
   
@@ -2305,11 +2468,32 @@ function appendMessageHTML(msg: any, isMine: boolean) {
   const avatarHtml = !isMine ? `<div class="msg-avatar" style="${avatarStyle}">${avatarUrl ? '' : firstLetter}</div>` : '';
 
   let parsed: any = null;
-  try { parsed = JSON.parse(msg.text); msg.parsedText = parsed; } catch(e) { msg.parsedText = msg.text; }
+  try { parsed = JSON.parse(msg.text); msg.parsedText = parsed; } catch(_e) { msg.parsedText = msg.text; }
   
   let contentHtml = '';
   if (parsed && typeof parsed === 'object') {
-     if (parsed.type === 'reply') {
+     if (parsed.type === 'voice') {
+        // КАСТОМНОЕ ГОЛОСОВОЕ
+        contentHtml = `
+          <div class="custom-audio-player">
+            <button class="audio-play-btn"><i class="fas fa-play"></i></button>
+            <div class="audio-track-container">
+              <input type="range" class="audio-slider" min="0" max="100" value="0">
+              <span class="audio-time">0:00</span>
+            </div>
+            <audio src="${parsed.url}" preload="metadata" style="display: none;"></audio>
+          </div>`;
+     } else if (parsed.type === 'circle_video') {
+        // КАСТОМНЫЙ КРУЖОЧЕК
+        contentHtml = `
+          <div class="custom-video-circle">
+            <video src="${parsed.url}" playsinline preload="metadata" loop></video>
+            <svg class="video-progress-ring" viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="58"></circle>
+              <circle class="ring-progress" cx="60" cy="60" r="58"></circle>
+            </svg>
+          </div>`;
+     } else if (parsed.type === 'reply') {
         contentHtml = `<div class="quoted-message"><div class="quoted-author">${parsed.author}</div><div class="quoted-text">${parsed.origText}</div></div><span>${parsed.text}</span>`;
      } else if (parsed.type === 'forward') {
         contentHtml = `<div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">Переслано от ${parsed.author}</div><span>${parsed.text}</span>`;
@@ -2339,12 +2523,104 @@ function appendMessageHTML(msg: any, isMine: boolean) {
       <input type="checkbox" class="message-checkbox" value="${msg.id}" ${selectedMessages.has(msg.id) ? 'checked' : ''}>
     </div>
     ${avatarHtml}
-    <div class="message-bubble">
-      ${(!isMine && currentChatIsGroup) ? `<div class="msg-author">${msg.sender_name}</div>` : ''}
+    <div class="message-bubble" style="${parsed?.type === 'circle_video' ? 'background: transparent; border: none; box-shadow: none; padding: 0;' : ''}">
+      ${(!isMine && currentChatIsGroup && parsed?.type !== 'circle_video') ? `<div class="msg-author">${msg.sender_name}</div>` : ''}
       ${contentHtml}
-      <span class="msg-time">${timeString}${ticksHtml}</span>
+      ${parsed?.type !== 'circle_video' ? `<span class="msg-time">${timeString}${ticksHtml}</span>` : ''}
     </div>
   `;
+  
+  // --- ЛОГИКА ДЛЯ АУДИО ---
+  const audioPlayer = row.querySelector('.custom-audio-player');
+  if (audioPlayer) {
+    const audio = audioPlayer.querySelector('audio') as HTMLAudioElement;
+    const btn = audioPlayer.querySelector('.audio-play-btn') as HTMLButtonElement;
+    const slider = audioPlayer.querySelector('.audio-slider') as HTMLInputElement;
+    const timeDisplay = audioPlayer.querySelector('.audio-time') as HTMLElement;
+
+    const formatTime = (time: number) => {
+        const m = Math.floor(time / 60);
+        const s = Math.floor(time % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    };
+
+    audio.addEventListener('loadedmetadata', () => { timeDisplay.innerText = formatTime(audio.duration); });
+
+    audio.addEventListener('timeupdate', () => {
+        const percent = (audio.currentTime / audio.duration) * 100;
+        slider.value = percent.toString();
+        timeDisplay.innerText = formatTime(audio.currentTime);
+        // Закрашиваем пройденный путь фиолетовым цветом
+        slider.style.background = `linear-gradient(to right, var(--accent-color) ${percent}%, rgba(255,255,255,0.2) ${percent}%)`;
+    });
+
+    slider.addEventListener('input', () => { audio.currentTime = (parseInt(slider.value) / 100) * audio.duration; });
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (audio.paused) {
+            document.querySelectorAll('audio').forEach(a => { 
+                if (a !== audio) { 
+                    a.pause(); 
+                    const otherBtn = a.parentElement?.querySelector('.audio-play-btn');
+                    if (otherBtn) otherBtn.innerHTML = '<i class="fas fa-play"></i>'; 
+                } 
+            });
+            audio.play();
+            btn.innerHTML = '<i class="fas fa-pause"></i>';
+        } else {
+            audio.pause();
+            btn.innerHTML = '<i class="fas fa-play"></i>';
+        }
+    });
+
+    audio.addEventListener('ended', () => {
+        btn.innerHTML = '<i class="fas fa-play"></i>';
+        slider.value = '0';
+        slider.style.background = `rgba(255,255,255,0.2)`;
+        timeDisplay.innerText = formatTime(audio.duration);
+    });
+  }
+
+  // --- ЛОГИКА ДЛЯ ВИДЕО КРУЖОЧКА ---
+  const videoCircle = row.querySelector('.custom-video-circle') as HTMLElement;
+  if (videoCircle) {
+    const video = videoCircle.querySelector('video') as HTMLVideoElement;
+    const progressRing = videoCircle.querySelector('.ring-progress') as SVGCircleElement;
+    const circumference = 2 * Math.PI * 58; // Длина круга
+    
+    progressRing.style.strokeDasharray = `${circumference} ${circumference}`;
+    progressRing.style.strokeDashoffset = `${circumference}`;
+
+    // Движение линии
+    video.addEventListener('timeupdate', () => {
+        const percent = video.currentTime / video.duration;
+        progressRing.style.strokeDashoffset = (circumference - percent * circumference).toString();
+    });
+
+    // Пауза/Старт по клику на кружок
+    videoCircle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (video.paused) {
+            document.querySelectorAll('.custom-video-circle video').forEach((v: any) => { if (v !== video) v.pause(); });
+            video.play();
+        } else {
+            video.pause();
+        }
+    });
+
+    // Перемотка по нажатию на края (математика круга)
+    progressRing.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const rect = progressRing.getBoundingClientRect();
+        const x = e.clientX - rect.left - 60; // Центр 60px
+        const y = e.clientY - rect.top - 60;
+        let angle = Math.atan2(y, x) + Math.PI / 2; // Учитываем поворот SVG на -90 град
+        if (angle < 0) angle += 2 * Math.PI;
+        video.currentTime = (angle / (2 * Math.PI)) * video.duration;
+        video.play();
+    });
+  }
   
   const checkbox = row.querySelector('.message-checkbox') as HTMLInputElement;
   checkbox?.addEventListener('change', () => {
